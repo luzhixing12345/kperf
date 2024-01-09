@@ -55,15 +55,15 @@ int main(int argc, const char** argv) {
             XBOX_free_argparse(&parser);
             return -1;
         } else {
-            char proc_exe_path[PATH_MAX];
-            snprintf(proc_exe_path, sizeof(proc_exe_path), "/proc/%d/exe", pid);
-            ssize_t r = readlink(proc_exe_path, elf_path, sizeof(elf_path) - 1);
-            if (r == -1) {
-                perror("readlink");
-                XBOX_free_argparse(&parser);
-                return -1;
-            }
-            elf_path[r] = '\0';
+            // char proc_exe_path[PATH_MAX];
+            // snprintf(proc_exe_path, sizeof(proc_exe_path), "/proc/%d/exe", pid);
+            // ssize_t r = readlink(proc_exe_path, elf_path, sizeof(elf_path) - 1);
+            // if (r == -1) {
+            //     perror("readlink");
+            //     XBOX_free_argparse(&parser);
+            //     return -1;
+            // }
+            // elf_path[r] = '\0';
         }
     } else {
         printf("program name: %s\n", program_name);
@@ -72,10 +72,12 @@ int main(int argc, const char** argv) {
         //     execvp(program_name, program_args);
         // }
         strncpy(elf_path, program_name, PATH_MAX);
+        XBOX_free_argparse(&parser);
+        printf("not support yet\n");
+        return 0;
     }
-    printf("elf path: %s\n", elf_path);
 
-    SymbolTable* user_symbol_table = load_user_symbols(elf_path);
+    SymbolTable* user_symbol_table = load_user_symbols(pid);
     if (user_symbol_table == NULL) {
         fprintf(stderr, "fail to load user symbols\n");
         XBOX_free_argparse(&parser);

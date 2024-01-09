@@ -47,4 +47,4 @@ void free_symbol_table(SymbolTable *symbols);
  * @param elf_path
  * @return SymbolTable*
  */
-SymbolTable *load_user_symbols(const char *elf_path);
+SymbolTable *load_user_symbols(int pid);
