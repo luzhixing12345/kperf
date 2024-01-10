@@ -53,6 +53,8 @@ dkms.conf
 
 a.c
 a
+b
+b.c
 src/kperf
 .vscode/
 docs/

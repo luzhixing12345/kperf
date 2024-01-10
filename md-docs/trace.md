@@ -1,6 +1,10 @@
 
 # trace
 
+pid 直接测
+
+program, fork 执行, 拿到 pid 测
+
 - `/proc/self/stack`
 - `/proc/[pid]/exe`: 一个符号链接, 指向进程的可执行文件.
 
@@ -29,8 +33,6 @@
   > [/proc/<pid>/maps简要分析](https://www.cnblogs.com/arnoldlu/p/10272466.html)
   > 
   > [understanding linux proc pid maps or proc self maps](https://stackoverflow.com/questions/1401359/understanding-linux-proc-pid-maps-or-proc-self-maps)
-  > 
-  > [baeldung proc-id-maps](https://www.baeldung.com/linux/proc-id-maps)
 
 ## 参考
 
