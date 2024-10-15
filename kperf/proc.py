@@ -95,7 +95,6 @@ class Proc:
         except ProcessLookupError:
             return
 
-        statistic_info = {}
         for line in content:
             if line.startswith("VmSize"):
                 statistic_info["VmSize"] = int(line.split()[1])  # 虚拟内存
@@ -116,15 +115,18 @@ class Proc:
         if numa_num == 0:
             return
 
-        statistic_info["Numa"] = {}
-        for i in range(numa_num):
-            statistic_info["Numa"][str(i)] = {"anon": 0, "file": 0}
-
         try:
             with open(self.numa_status_path, "r") as f:
                 content = f.readlines()
         except ProcessLookupError:
             return
+        except PermissionError:
+            # print(f"no permission to read {self.numa_status_path}")
+            return
+
+        statistic_info["Numa"] = {}
+        for i in range(numa_num):
+            statistic_info["Numa"][str(i)] = {"anon": 0, "file": 0}
 
         for line in content:
             match = self.numa_output_pattern.match(line)

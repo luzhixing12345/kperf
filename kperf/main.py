@@ -4,6 +4,13 @@ from .proc import *
 from .draw import draw
 from .system import system_monitor
 
+def parse_program_args(command_str: str):
+    command_args = command_str.split()
+    
+    # 替换命令中的 ~ 为用户的主目录
+    command_args = [os.path.expanduser(arg) for arg in command_args]
+    return command_args
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -29,7 +36,7 @@ def main():
     elif args.program:
         print(f"run {args.program}")
         try:
-            process = subprocess.Popen(args.program.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(parse_program_args(args.program), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             proc = Proc(process.pid)
         except FileNotFoundError:
             print(f"could not find program {args.program}")

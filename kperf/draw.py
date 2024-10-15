@@ -16,6 +16,7 @@ def draw(statistic_infos: list[dict[str, float]]):
 
     draw_file_anon(statistic_infos)
     draw_numa(statistic_infos)
+    draw_numa_anon_file(statistic_infos)
 
 
 def draw_file_anon(statistic_infos: list[dict[str, float]]):
@@ -48,7 +49,7 @@ def draw_file_anon(statistic_infos: list[dict[str, float]]):
 
 def draw_numa(statistic_infos: list[dict[str, float]]):
 
-    if statistic_infos[0].get("numa") is None:
+    if statistic_infos[0].get("Numa") is None:
         return
 
     graph = ppl.LineGraph()
@@ -74,7 +75,7 @@ def draw_numa(statistic_infos: list[dict[str, float]]):
         if statistic_info == {}:
             continue
         for i in range(numa_num):
-            data[i].append(statistic_info["numa"][str(i)]["anon"] + statistic_info["numa"][str(i)]["file"])
+            data[i].append(statistic_info["Numa"][str(i)]["anon"] + statistic_info["Numa"][str(i)]["file"])
 
     graph.disable_x_ticks = True
     graph.disable_points = True
@@ -88,7 +89,7 @@ def draw_numa(statistic_infos: list[dict[str, float]]):
 
 def draw_numa_anon_file(statistic_infos: list[dict[str, float]]):
 
-    if statistic_infos[0].get("numa") is None:
+    if statistic_infos[0].get("Numa") is None:
         return
 
     graph = ppl.LineGraph()
@@ -114,11 +115,11 @@ def draw_numa_anon_file(statistic_infos: list[dict[str, float]]):
     for statistic_info in statistic_infos:
         if statistic_info == {}:
             continue
-        i = 0
-        while i < numa_num:
-            data[i].append(statistic_info["numa"][str(i)]["anon"])
-            data[i + 1].append(statistic_info["numa"][str(i)]["file"])
-            i += 2
+        index = 0
+        for i in range(numa_num):
+            data[index].append(statistic_info["Numa"][str(i)]["anon"])
+            data[index + 1].append(statistic_info["Numa"][str(i)]["file"])
+            index += 2
 
     graph.disable_x_ticks = True
     graph.disable_points = True
