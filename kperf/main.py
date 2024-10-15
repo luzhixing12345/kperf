@@ -44,7 +44,7 @@ def main():
     proc.sleep_time = args.time
     proc.monitor()
     proc.save_data()
-    draw(proc.mem_status_list)
+    draw(proc.statistic_infos)
 
 
 if __name__ == "__main__":
