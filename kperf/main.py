@@ -1,15 +1,9 @@
 import argparse
-import subprocess
+
 from .proc import *
 from .draw import draw
 from .system import system_monitor
 
-def parse_program_args(command_str: str):
-    command_args = command_str.split()
-    
-    # 替换命令中的 ~ 为用户的主目录
-    command_args = [os.path.expanduser(arg) for arg in command_args]
-    return command_args
 
 
 def main():
@@ -18,6 +12,7 @@ def main():
     parser.add_argument("-g", "--gid", type=int, default=0, help="gid")
     parser.add_argument("-t", "--time", type=float, default=0.1, help="sleep time")
     parser.add_argument("-f", "--file", type=str, help="load data from json file and draw")
+    parser.add_argument("-o", "--output-dir", type=str, help="output dir", default="results")
     parser.add_argument("program", type=str, nargs="?", help="program name")
     args = parser.parse_args()
 
@@ -27,6 +22,11 @@ def main():
         draw(data)
         return
 
+    # check if is in linux system
+    if not sys.platform.startswith("linux"):
+        print("only support linux system")
+        return
+    get_sudo()
     if args.pid > 0:
         proc = Proc(args.pid)
         proc.dump()
@@ -36,8 +36,7 @@ def main():
     elif args.program:
         print(f"run {args.program}")
         try:
-            process = subprocess.Popen(parse_program_args(args.program), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            proc = Proc(process.pid)
+            proc = Proc(run(args.program))
         except FileNotFoundError:
             print(f"could not find program {args.program}")
             return
@@ -51,7 +50,7 @@ def main():
     proc.sleep_time = args.time
     proc.monitor()
     proc.save_data()
-    draw(proc.statistic_infos)
+    draw(proc.statistic_infos, args.output_dir)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "kperf"
-version = "0.0.1"
+version = "0.0.2"
 description = "linux kernel profiler"
-authors = ["luzhixing12345 <luzhixing12345@gmail.com>"]
+authors = ["luzhixing12345 <luzhixing12345@163.com>"]
 license = "MIT"
 readme = "README.md"
 
@@ -10,7 +10,11 @@ readme = "README.md"
 python = "^3.9"
 paperplotlib="*"
 prettytable="*"
+psutil="*"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+kperf = 'kperf.main:main'

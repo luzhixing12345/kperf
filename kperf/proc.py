@@ -13,14 +13,22 @@ class Proc:
         self.pid = pid
         self.sleep_time = 0.1
 
+        # ------
         self.status_path = f"/proc/{pid}/status"
         self.numa_status_path = f"/proc/{pid}/numa_maps"
         self.numa_output_pattern = re.compile(
             r"(?P<address>[0-9a-f]+)\s+\w+\s+(?P<page_type>\w+)=\d+\s+dirty=\d+\s+active=\d+\s+(?P<node_pages>(N\d+=\d+\s*)+)\s+kernelpagesize_kB=\d+"
         )
+        self.page_types_bin_path = os.path.join(os.path.dirname(__file__), "bin", "page-types")
+        if not os.path.exists(self.page_types_bin_path):
+            print(f"no such file: {self.page_types_bin_path}")
+            sys.exit(1)
+        self.page_types_pattern = re.compile(r"^(0x[0-9a-fA-F]+)\s+(\d+)\s+(\d+)\s+([_A-Za-z]+)\s+([\w,]+)$")
+        # ------
+
         self.statistic_infos: list[dict[str, float]] = []
         self.dump()
-
+        
         # 启动计时器线程
         self.timer_runing = True
         self.timer_thread = threading.Thread(target=self.timer)
@@ -29,7 +37,7 @@ class Proc:
 
     def dump(self):
         print("pid: %d" % self.pid)
-
+        
     def timer(self):
         start_time = time.time()
         table = PrettyTable()
@@ -59,7 +67,7 @@ class Proc:
                 time.sleep(self.sleep_time)
         except KeyboardInterrupt:
             # 子进程会随着父进程退出而自动退出, 不需要手动 Kill
-            ...
+            pass
         finally:
             self.timer_runing = False
             self.timer_thread.join()
@@ -82,10 +90,16 @@ class Proc:
             #         'anon': 0,
             #         'file': 0
             #     }
+            # 'page_types': {
+            #     'referenced': 0,
+            #     'dirty': 0,
+            #     'active': 0,
+            #     'total': 0
             # }
         }
         self.get_mem_status(statistic_info)
         self.get_numa_status(statistic_info)
+        self.get_page_types(statistic_info)
         return statistic_info
 
     def get_mem_status(self, statistic_info: dict[str, float]):
@@ -146,3 +160,30 @@ class Proc:
         with open(data_json_path, "w") as f:
             json.dump(self.statistic_infos, f)
         print("save data to %s" % data_json_path)
+
+    def get_page_types(self, statistic_info: dict[str, float]):
+
+        output = get_output(f"sudo {self.page_types_bin_path} -p {self.pid}")
+        # 0x0000000000000800               1        0  ___________M________________________________       mmap
+        # 0x0000000000000828            4536       17  ___U_l_____M________________________________       uptodate,lru,mmap
+        output_list = output.split("\n")
+        # print(output_list, output_list[-1])
+        total_page_count = output_list[-2].split()[1]
+        output_list = output_list[1:-2]
+        
+        statistic_info["page_types"] = {"referenced": 0, "dirty": 0, "total": int(total_page_count)}
+        for line in output_list:
+            match: re.Match = self.page_types_pattern.match(line)
+            if match:
+                page_count = int(match.group(2))
+                long_type = match.group(5)
+                if "referenced" in long_type:
+                    statistic_info["page_types"]["referenced"] += page_count
+                if "dirty" in long_type:
+                    statistic_info["page_types"]["dirty"] += page_count
+                
+                # referenced 和 active 数量几乎一致
+                # if "active" in long_type:
+                #     statistic_info["page_types"]["active"] += page_count
+            else:
+                print(f"page type not match: {line}")

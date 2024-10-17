@@ -2,6 +2,18 @@
 
 linux kernel profiler
 
+## 安装
+
+```bash
+pip install kperf
+```
+
+## 快速开始
+
+```bash
+kperf 
+```
+
 ## 参考
 
 - [awesome-profiling](https://github.com/msaroufim/awesome-profiling)
