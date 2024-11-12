@@ -20,7 +20,7 @@
 #include <vector>
 using namespace std;
 
-#define MAXN   512
+#define MAXN 512
 #define MAXCPU 128
 #define error(msg)   \
     do {             \
@@ -29,6 +29,17 @@ using namespace std;
     } while (0)
 
 static char gflag_kernel_only = 0;
+
+int isProcessRunning(pid_t pid) {
+    // Send signal 0 to check if the process is running
+    if (kill(pid, 0) == 0) {
+        return 1;  // Process is running
+    } else if (errno == ESRCH) {
+        return 0;  // Process does not exist
+    } else {
+        return -1;  // An error occurred (e.g., permission denied)
+    }
+}
 
 //--------------------------------Tree for call chain and
 // report-------------------------------
@@ -200,7 +211,7 @@ void parse_elf64(FILE *fp, unsigned long long v_addr, unsigned long long v_size,
 
 int load_symbol_from_file(const char *path, unsigned long long addr, unsigned long long size, unsigned long long offset,
                           STORE_T &store) {
-    printf("loading symble from %s\n", path);
+    // printf("loading symble from %s\n", path);
     FILE *fp = fopen(path, "rb");
     if (fp == NULL) {
         perror("fail to open file");
@@ -381,6 +392,8 @@ void int_exit(int _) {
             printf("save report in report.html\n");
         }
         gnode = NULL;
+    } else {
+        printf("no report\n");
     }
 
     if (unknowns.size() > 0) {
@@ -389,6 +402,7 @@ void int_exit(int _) {
             printf("0x%llx  --?>  %s\n", (*x).first, (*x).second.c_str());
         }
     }
+    printf("---------------------done---------------------\n");
     exit(0);
 }
 /*
@@ -494,7 +508,6 @@ int process_event(char *base, unsigned long long size, unsigned long long offset
 }
 
 int main(int argc, char *argv[]) {
-
     // check if user is root or have sudo permission
     if (geteuid() != 0) {
         printf("You must be root to run this program.\n");
@@ -516,59 +529,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     user_symbols = load_symbol_pid(pid);
-    // find cgroup
     int i, k, fd;
     void *addr;
-    // sprintf(xb, "/proc/%d/cgroup", pid);
-    // FILE *fp = fopen(xb, "r");
-    // if (fp == NULL)
-    //     error("fail to open cgroup file");
-    // char *p;
-    // xb2[0] = 0;
-    // int cgroup_name_len = 0;
-    // while (1) {
-    //     p = fgets(xb, sizeof(xb), fp);
-    //     if (p == NULL)
-    //         break;
-    //     i = 0;
-    //     while (p[i] && p[i] != ':') i++;
-    //     if (p[i] == 0)
-    //         continue;
-    //     if (strstr(p, "perf_event")) {
-    //         i++;
-    //         while (p[i] != ':' && p[i]) i++;
-    //         if (p[i] != ':')
-    //             continue;
-    //         i++;
-    //         j = i;
-    //         while (p[j] != '\r' && p[j] != '\n' && p[j] != 0) j++;
-    //         p[j] = 0;
-    //         sprintf(xb2, "/sys/fs/cgroup/perf_event%s", p + i);
-    //         cgroup_name_len = j - i;
-    //         break;
-    //     } else if (p[i + 1] == ':') {
-    //         i += 2;
-    //         j = i;
-    //         while (p[j] != '\r' && p[j] != '\n' && p[j] != 0) j++;
-    //         p[j] = 0;
-    //         sprintf(xb2, "/sys/fs/cgroup/%s", p + i);
-    //         cgroup_name_len = j - i;
-    //     }
-    // }
-    // fclose(fp);
-    // if (xb2[0] == 0)
-    //     error("no proper cgroup found\n");
-    // if (cgroup_name_len < 2) {
-    //     printf("cgroup %s seems to be root, not allowed\n", xb2);
-    //     return -1;
-    // }
-    // printf("try to use cgroup %s\n", xb2);
-    // int cgroup_id = open(xb2, O_CLOEXEC);
-    // if (cgroup_id <= 0) {
-    //     perror("error open cgroup dir");
-    //     return 1;
-    // }
-    // start perf event
     psize = sysconf(_SC_PAGE_SIZE);  // getpagesize();
     int cpu_num = sysconf(_SC_NPROCESSORS_ONLN);
     struct perf_event_attr attr;
@@ -637,6 +599,11 @@ int main(int argc, char *argv[]) {
             }
             res[fd].second = mp->data_head;
             ioctl(fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
+        }
+
+        if (isProcessRunning(pid) <= 0) {
+            printf("process %d finished\n", pid);
+            int_exit(0);
         }
     }
 

@@ -227,3 +227,5 @@ kperf/paperplotlib
 *.json
 1.py
 /perf.*
+a.cpp
+report.html
