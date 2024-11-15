@@ -42,20 +42,19 @@ def parse_program_args(command_str: str):
 
     # 替换命令中的 ~ 为用户的主目录
     command_args = [os.path.expanduser(arg) for arg in command_args]
-
     return command_args
 
 
 def get_sudo():
     command_list = parse_program_args('sudo echo ""')
     process = subprocess.Popen(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-    output, error = process.communicate()  # if need sudo
+    output, error = process.communicate()
 
 
 def run(command_str):
     command_list = parse_program_args(command_str)
     process = subprocess.Popen(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, preexec_fn=os.setsid)
-    return os.getpgid(process.pid)
+    return process.pid
 
 
 def get_output(command_str):

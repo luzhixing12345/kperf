@@ -29,10 +29,9 @@ def main():
     get_sudo()
     if args.pid > 0:
         proc = Proc(args.pid)
-        proc.dump()
-    elif args.gid > 0:
-        proc = Proc(args.gid)
-        proc.dump()
+    # elif args.gid > 0:
+    #     proc = Proc(args.gid)
+    #     proc.dump()
     elif args.program:
         print(f"run {args.program}")
         try:

@@ -6,7 +6,7 @@ import json
 import sys
 from .utils import *
 from prettytable import PrettyTable
-
+import subprocess
 
 class Proc:
     def __init__(self, pid):
@@ -54,8 +54,8 @@ class Proc:
 
     def is_runing(self):
         try:
-            proc = psutil.Process(self.pid)
             # 检查进程是否还在运行
+            proc = psutil.Process(self.pid)
             return proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE
         except psutil.NoSuchProcess:
             return False  # 进程不存在
