@@ -24,8 +24,8 @@ specify the pid to monitor, the program will stop monitoring util the pid is fin
 sudo ./src/kperf -p <pid>
 ```
 
-- pid > 0 means only collect user's function callchain 
-- pid < 0 means collect kernel and user function callchain
+- pid > 0 means collect **program and kernel** function callchain 
+- pid < 0 means collect **kernel** function callchain only
 
 you could use `-t` to setup a timer, the program will stop monitoring when time's up
 

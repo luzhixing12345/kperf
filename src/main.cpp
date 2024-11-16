@@ -185,8 +185,8 @@ int main(int argc, const char *argv[]) {
     argparse_option options[] = {XBOX_ARG_INT(&pid,
                                               "-p",
                                               "--pid",
-                                              "pid > 0 to specify a process's function callchain;           pid < 0 to "
-                                              "specify kernel and user function callchain",
+                                              "pid > 0 means collect program and kernel function callchain  pid < 0 "
+                                              "means collect kernel function callchain only",
                                               NULL,
                                               "pid"),
                                  XBOX_ARG_INT(&timeout, "-t", "--timeout", "maximum time in seconds", NULL, "timeout"),
