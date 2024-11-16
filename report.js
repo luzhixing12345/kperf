@@ -43,7 +43,6 @@ let functioncalls = contentArray.map(item => {
     let match = item.match(/^[^(]+/);
     return match ? match[0].trim() : "";
 });
-// console.log(functioncalls);
 
 // 自定义搜索函数
 function customSearch() {
@@ -114,7 +113,7 @@ document.addEventListener('keydown', function (event) {
 // 为每个 label 元素添加右键点击事件监听
 // 为每个 label 元素添加右键点击事件监听
 labels.forEach(label => {
-    // 初始化一个变量，用于追踪当前是否已变蓝
+    // 初始化一个变量,用于追踪当前是否已变蓝
     let isColored = false;
 
     label.addEventListener('contextmenu', function(event) {

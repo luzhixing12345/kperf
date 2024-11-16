@@ -54,7 +54,7 @@ void int_exit(int _) {
             fprintf(fp, "</ul>\n");
             fprintf(fp, "<script src=\"report.js\"> </script>\n");
             fclose(fp);
-            kprintf("save report in report.html\n");
+            kprintf("get %d samples, save report in report.html\n", gnode->c);
         }
         gnode = NULL;
     } else {
@@ -281,6 +281,8 @@ int main(int argc, const char *argv[]) {
         printf("no cpu event attached at all\n");
         return 1;
     }
+
+    kprintf("collecting data ...\n");
 
     unsigned long long head;
     int event_size;
