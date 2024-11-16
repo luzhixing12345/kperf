@@ -2,6 +2,10 @@
 
 linux kernel function callchain profiler
 
+> main source code comes from [linux-tools profiler](https://github.com/zq-david-wang/linux-tools/tree/main/perf/profiler)
+
+![demo](./demo.gif)
+
 ## compile
 
 ```bash
@@ -35,6 +39,8 @@ sudo ./src/kperf -p <pid> -t 60
 the program will generate report.html
 
 ctrl+f search all results, right click to highlight the marker
+
+see the demo gif above
 
 ## reference
 
