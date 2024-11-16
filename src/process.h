@@ -12,4 +12,4 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-int isProcessRunning(pid_t pid);
+int is_process_runing(pid_t pid);

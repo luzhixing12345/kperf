@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <cerrno>
 
-int isProcessRunning(pid_t pid) {
+int is_process_runing(pid_t pid) {
     // Send signal 0 to check if the process is running
     if (kill(pid, 0) == 0) {
         return 1;  // Process is running

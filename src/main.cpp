@@ -16,6 +16,7 @@
 #include "perf.h"
 #include "common.h"
 
+const char *VERSION = "v0.0.1";
 
 bool gflag_kernel_only = false;
 
@@ -47,12 +48,11 @@ void int_exit(int _) {
     if (gnode != NULL) {
         FILE *fp = fopen("./report.html", "w");
         if (fp) {
-            fprintf(fp,
-                    "<head> <link rel=\"stylesheet\" href=\"report.css\"> "
-                    "<script src=\"report.js\"> </script> </head>\n");
+            fprintf(fp, "<head> <link rel=\"stylesheet\" href=\"report.css\"> </head>\n");
             fprintf(fp, "<ul class=\"tree\">\n");
             gnode->printit(fp, 0);
             fprintf(fp, "</ul>\n");
+            fprintf(fp, "<script src=\"report.js\"> </script>\n");
             fclose(fp);
             kprintf("save report in report.html\n");
         }
@@ -174,7 +174,7 @@ int process_event(char *base, unsigned long long size, unsigned long long offset
 
 void handle_alarm(int sig) {
     kprintf("timeout\n");
-    if (isProcessRunning(pid)) {
+    if (is_process_runing(pid)) {
         kill(pid, SIGKILL);
         kprintf("killed pid %d\n", pid);
     }
@@ -182,22 +182,31 @@ void handle_alarm(int sig) {
 }
 
 int main(int argc, const char *argv[]) {
-    argparse_option options[] = {XBOX_ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
+    argparse_option options[] = {XBOX_ARG_INT(&pid,
+                                              "-p",
+                                              "--pid",
+                                              "pid > 0 to specify a process's function callchain;           pid < 0 to "
+                                              "specify kernel and user function callchain",
+                                              NULL,
+                                              "pid"),
+                                 XBOX_ARG_INT(&timeout, "-t", "--timeout", "maximum time in seconds", NULL, "timeout"),
+                                 XBOX_ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
                                  XBOX_ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
-                                 XBOX_ARG_INT(&pid, "-p", "--pid", "pid", NULL, "pid"),
-                                 XBOX_ARG_INT(&timeout, "-t", "--timeout", "timeout", NULL, "timeout"),
                                  XBOX_ARG_END()};
 
     XBOX_argparse parser;
     XBOX_argparse_init(&parser, options, 0);
-    XBOX_argparse_describe(&parser,
-                           "kperf",
-                           "\nkernel callchain profiler\n",
-                           "\n");
+    XBOX_argparse_describe(&parser, "kperf", "kernel callchain profiler\n", "https://github.com/luzhixing12345/kperf");
     XBOX_argparse_parse(&parser, argc, argv);
 
     if (XBOX_ismatch(&parser, "help")) {
         XBOX_argparse_info(&parser);
+        XBOX_free_argparse(&parser);
+        return 0;
+    }
+
+    if (XBOX_ismatch(&parser, "version")) {
+        printf("kperf version %s\n", VERSION);
         XBOX_free_argparse(&parser);
         return 0;
     }
@@ -208,18 +217,21 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    kernel_symbols = load_kernel();
-
     if (pid == 0) {
+        printf("You must specify a pid.\n");
         XBOX_free_argparse(&parser);
         return 1;
     }
 
     if (pid < 0) {
-        kprintf("only collect kernel function call data\n");
+        gflag_kernel_only = 1;
         pid = -pid;
-        gflag_kernel_only = true;    
     }
+    user_symbols = load_symbol_pid(pid);
+    kprintf("loaded user symbols\n");
+
+    kernel_symbols = load_kernel();
+    kprintf("loaded kernel symbols\n");
 
     signal(SIGINT, int_exit);
     signal(SIGTERM, int_exit);
@@ -230,8 +242,6 @@ int main(int argc, const char *argv[]) {
         alarm(timeout);
     }
 
-    kprintf("loading symbols for %d\n", pid);
-    user_symbols = load_symbol_pid(pid);
     int i, k, fd;
     void *addr;
     psize = sysconf(_SC_PAGE_SIZE);  // getpagesize();
@@ -301,7 +311,7 @@ int main(int argc, const char *argv[]) {
             ioctl(fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
         }
 
-        if (isProcessRunning(pid) <= 0) {
+        if (is_process_runing(pid) <= 0) {
             kprintf("process %d finished\n", pid);
             int_exit(0);
         }
