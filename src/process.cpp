@@ -3,7 +3,9 @@
 #include <asm/unistd.h>
 #include <elf.h>
 #include <fcntl.h>
+#include <sys/types.h>
 #include <cerrno>
+#include "cgroup.h"
 
 int is_process_runing(pid_t pid) {
     // Send signal 0 to check if the process is running

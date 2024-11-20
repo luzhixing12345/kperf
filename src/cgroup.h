@@ -12,5 +12,4 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-int is_running();
-int is_process_runing(pid_t pid);
+int create_cgroup(int *cgroup_pids, int n);

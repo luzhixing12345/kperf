@@ -1,8 +1,10 @@
 
 
 #include <poll.h>
-
+#include <limits.h>
+#include <unistd.h>
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <map>
 #include <string>
@@ -15,10 +17,11 @@
 #include "process.h"
 #include "perf.h"
 #include "common.h"
+#include "cgroup.h"
 
 const char *VERSION = "v0.0.1";
 
-bool gflag_kernel_only = false;
+int kernel_callchain_only = 0;
 
 std::unordered_map<int, STORE_T *> pid_symbols;
 K_STORE_T *kernel_symbols = NULL;
@@ -32,10 +35,8 @@ std::unordered_map<unsigned long long, std::string> unknowns;
 extern TNode *gnode;
 int pid = 0;
 int timeout = -1;
-
-//--------------------------------Tree for call chain and
-// report-------------------------------
-//
+extern int kperf_cgroup_fd;
+extern int use_cgroup;
 
 void int_exit(int _) {
     for (auto x : res) {
@@ -131,7 +132,7 @@ int process_event(char *base, unsigned long long size, unsigned long long offset
                     r = r->add(std::string("unknown"));
                 }
             } else {
-                if (gflag_kernel_only)
+                if (kernel_callchain_only)
                     continue;
                 if (user_symbols) {
                     auto x = user_symbols->upper_bound(addr);
@@ -182,21 +183,27 @@ void handle_alarm(int sig) {
 }
 
 int main(int argc, const char *argv[]) {
-    argparse_option options[] = {XBOX_ARG_INT(&pid,
-                                              "-p",
-                                              "--pid",
-                                              "pid > 0 means collect program and kernel function callchain  pid < 0 "
-                                              "means collect kernel function callchain only",
-                                              NULL,
-                                              "pid"),
-                                 XBOX_ARG_INT(&timeout, "-t", "--timeout", "maximum time in seconds", NULL, "timeout"),
-                                 XBOX_ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
-                                 XBOX_ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
-                                 XBOX_ARG_END()};
+    int *cgroup_pids = NULL;
+    argparse_option options[] = {
+        XBOX_ARG_INT(&pid,
+                     "-p",
+                     "--pid",
+                     "pid > 0 collects program and kernel function callchain       pid < 0 "
+                     "collects kernel function callchain only",
+                     " <pid>",
+                     "pid"),
+        XBOX_ARG_INTS_GROUP(&cgroup_pids, NULL, NULL, "multiple pids", " <pid> ...", "cgroup_pids"),
+        XBOX_ARG_BOOLEAN(&use_cgroup, NULL, "--cgroup", "collect process in cgroup", NULL, "cgroup"),
+        XBOX_ARG_BOOLEAN(&kernel_callchain_only, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
+        XBOX_ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
+        XBOX_ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
+        XBOX_ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
+        XBOX_ARG_END()};
 
     XBOX_argparse parser;
     XBOX_argparse_init(&parser, options, 0);
-    XBOX_argparse_describe(&parser, "kperf", "kernel callchain profiler\n", "https://github.com/luzhixing12345/kperf");
+    XBOX_argparse_describe(
+        &parser, "kperf", "kernel callchain profiler", "Full documentation: https://github.com/luzhixing12345/kperf");
     XBOX_argparse_parse(&parser, argc, argv);
 
     if (XBOX_ismatch(&parser, "help")) {
@@ -217,19 +224,30 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    if (pid == 0) {
-        printf("You must specify a pid.\n");
-        XBOX_free_argparse(&parser);
-        return 1;
+    int cgroup_pid_num = XBOX_ismatch(&parser, "cgroup_pids");
+    if (use_cgroup) {
+        if (!cgroup_pid_num) {
+            eprintf("You must specify cgroup pids.\n");
+            XBOX_free_argparse(&parser);
+            return 1;
+        }
+        create_cgroup(cgroup_pids, cgroup_pid_num);
+        pid = cgroup_pids[0];
+    } else {
+        if (pid == 0) {
+            eprintf("You must specify a pid.\n");
+            XBOX_free_argparse(&parser);
+            return 1;
+        }
+
+        if (pid < 0) {
+            kernel_callchain_only = 1;
+            pid = -pid;
+        }
     }
 
-    if (pid < 0) {
-        gflag_kernel_only = 1;
-        pid = -pid;
-    }
     user_symbols = load_symbol_pid(pid);
     kprintf("loaded user symbols\n");
-
     kernel_symbols = load_kernel();
     kprintf("loaded kernel symbols\n");
 
@@ -256,11 +274,17 @@ int main(int argc, const char *argv[]) {
     attr.wakeup_events = 16;
     attr.sample_type = PERF_SAMPLE_TID | PERF_SAMPLE_CALLCHAIN;
     attr.sample_max_stack = 32;
-    if (gflag_kernel_only)
+
+    int perf_flags = PERF_FLAG_FD_CLOEXEC;
+    if (use_cgroup) {
+        perf_flags |= PERF_FLAG_PID_CGROUP;
+    }
+    if (kernel_callchain_only) {
         attr.exclude_callchain_user = 1;
+    }
     for (i = 0, k = 0; i < cpu_num && i < MAXCPU; i++) {
         // printf("attaching cpu %d\n", i);
-        fd = perf_event_open(&attr, pid, i, -1, PERF_FLAG_FD_CLOEXEC);
+        fd = perf_event_open(&attr, use_cgroup ? kperf_cgroup_fd : pid, i, -1, perf_flags);
         if (fd < 0) {
             perror("fail to open perf event");
             continue;
@@ -287,38 +311,42 @@ int main(int argc, const char *argv[]) {
     unsigned long long head;
     int event_size;
     struct perf_event_mmap_page *mp;
-    while (poll(polls, k, -1) > 0) {
-        // printf("wake\n");
-        for (i = 0; i < k; i++) {
-            if ((polls[i].revents & POLLIN) == 0)
-                continue;
-            fd = polls[i].fd;
-            addr = res[fd].first;
-            mp = (struct perf_event_mmap_page *)addr;
-            head = res[fd].second;
-            ioctl(fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 1);
-            if (head > mp->data_head)
-                head = mp->data_head;
-            head = mp->data_head - ((mp->data_head - head) % mp->data_size);
-            while (head < mp->data_head) {
-                event_size = process_event((char *)addr + mp->data_offset, mp->data_size, head);
-                if (event_size < 0) {
-                    // resync
+    while (1) {
+        if (poll(polls, k, 0) > 0) {
+            for (i = 0; i < k; i++) {
+                if ((polls[i].revents & POLLIN) == 0)
+                    continue;
+                fd = polls[i].fd;
+                addr = res[fd].first;
+                mp = (struct perf_event_mmap_page *)addr;
+                head = res[fd].second;
+                ioctl(fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 1);
+                if (head > mp->data_head)
                     head = mp->data_head;
-                    break;
+                head = mp->data_head - ((mp->data_head - head) % mp->data_size);
+                while (head < mp->data_head) {
+                    event_size = process_event((char *)addr + mp->data_offset, mp->data_size, head);
+                    if (event_size < 0) {
+                        // resync
+                        head = mp->data_head;
+                        break;
+                    }
+                    head += event_size;
                 }
-                head += event_size;
+                res[fd].second = mp->data_head;
+                ioctl(fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
             }
-            res[fd].second = mp->data_head;
-            ioctl(fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
         }
 
         if (is_process_runing(pid) <= 0) {
-            kprintf("process %d finished\n", pid);
+            kprintf("process finished\n");
             int_exit(0);
         }
     }
 
+    if (use_cgroup) {
+        close(kperf_cgroup_fd);
+    }
     XBOX_free_argparse(&parser);
     int_exit(0);
     return 0;
