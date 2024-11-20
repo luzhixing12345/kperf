@@ -260,7 +260,7 @@ int main(int argc, const char *argv[]) {
         alarm(timeout);
     }
 
-    int i, k, fd;
+    int poll_num = 0;
     void *addr;
     psize = sysconf(_SC_PAGE_SIZE);  // getpagesize();
     int cpu_num = sysconf(_SC_NPROCESSORS_ONLN);
@@ -282,9 +282,9 @@ int main(int argc, const char *argv[]) {
     if (kernel_callchain_only) {
         attr.exclude_callchain_user = 1;
     }
-    for (i = 0, k = 0; i < cpu_num && i < MAXCPU; i++) {
+    for (int i = 0; i < cpu_num && i < MAXCPU; i++) {
         // printf("attaching cpu %d\n", i);
-        fd = perf_event_open(&attr, use_cgroup ? kperf_cgroup_fd : pid, i, -1, perf_flags);
+        int fd = perf_event_open(&attr, use_cgroup ? kperf_cgroup_fd : pid, i, -1, perf_flags);
         if (fd < 0) {
             perror("fail to open perf event");
             continue;
@@ -296,12 +296,12 @@ int main(int argc, const char *argv[]) {
             continue;
         }
         res[fd] = std::make_pair(addr, 0);
-        polls[k].fd = fd;
-        polls[k].events = POLLIN;
-        polls[k].revents = 0;
-        k++;
+        polls[poll_num].fd = fd;
+        polls[poll_num].events = POLLIN;
+        polls[poll_num].revents = 0;
+        poll_num++;
     }
-    if (k == 0) {
+    if (poll_num == 0) {
         printf("no cpu event attached at all\n");
         return 1;
     }
@@ -312,11 +312,11 @@ int main(int argc, const char *argv[]) {
     int event_size;
     struct perf_event_mmap_page *mp;
     while (1) {
-        if (poll(polls, k, 0) > 0) {
-            for (i = 0; i < k; i++) {
+        if (poll(polls, poll_num, 0) > 0) {
+            for (int i = 0; i < poll_num; i++) {
                 if ((polls[i].revents & POLLIN) == 0)
                     continue;
-                fd = polls[i].fd;
+                int fd = polls[i].fd;
                 addr = res[fd].first;
                 mp = (struct perf_event_mmap_page *)addr;
                 head = res[fd].second;

@@ -8,7 +8,7 @@
 #define eprintf(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 #define MAXN 1024
-#define MAXCPU 256
+#define MAXCPU 1024
 #define error(msg)   \
     do {             \
         perror(msg); \
