@@ -8,6 +8,7 @@ SRC_EXT = cpp
 THIRD_LIB =
 
 CFLAGS = -Wall -Wunused -Werror -Wformat-security -Wshadow -Wpedantic -Wstrict-aliasing -Wuninitialized -Wnull-dereference -Wformat=2
+LDFLAGS = -lpthread
 
 ifneq ($(THIRD_LIB),)
 CFLAGS += $(shell pkg-config --cflags $(THIRD_LIB))
