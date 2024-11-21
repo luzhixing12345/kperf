@@ -70,14 +70,14 @@ int create_cgroup(int *cgroup_pids, int n) {
     }
 
     // cgroup v1 or v2
-    const char *base_cgroup_path;
-    if (access("/sys/fs/cgroup/cgroup.controllers", F_OK) == -1) {
-        // v1
-        base_cgroup_path = "/sys/fs/cgroup/cpu";
-    } else {
-        // v2
-        base_cgroup_path = "/sys/fs/cgroup";
-    }
+    const char *base_cgroup_path = "/sys/fs/cgroup";
+    // if (access("/sys/fs/cgroup/cgroup.controllers", F_OK) == -1) {
+    //     // v1
+    //     base_cgroup_path = "/sys/fs/cgroup/cpu";
+    // } else {
+    //     // v2
+    //     base_cgroup_path = ;
+    // }
 
     char cgroup_path[PATH_MAX];
     snprintf(cgroup_path, sizeof(cgroup_path), "%s/%s", base_cgroup_path, KPERF_CGROUP_NAME);

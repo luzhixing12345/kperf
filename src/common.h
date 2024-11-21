@@ -15,4 +15,4 @@
         exit(1);     \
     } while (0)
 
-#define KPERF_CGROUP_NAME "kperf"
+#define KPERF_CGROUP_NAME "perf_event"
