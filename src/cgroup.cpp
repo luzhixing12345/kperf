@@ -9,6 +9,7 @@
 
 int kperf_cgroup_fd;
 int use_cgroup = 0;
+const char *base_cgroup_path;
 
 static int remove_exist_cgroup_pids(int fd) {
     // Read current cgroup pids into buffer
@@ -26,7 +27,7 @@ static int remove_exist_cgroup_pids(int fd) {
 
     // Parse the current pids and move them to the root cgroup
     char cgroup_path[PATH_MAX];
-    snprintf(cgroup_path, sizeof(cgroup_path), "/sys/fs/cgroup/cgroup.procs");
+    snprintf(cgroup_path, sizeof(cgroup_path), "%s/cgroup.procs", base_cgroup_path);
     int root_fd = open(cgroup_path, O_WRONLY);
     if (root_fd == -1) {
         perror("open root cgroup.procs");
@@ -70,14 +71,13 @@ int create_cgroup(int *cgroup_pids, int n) {
     }
 
     // cgroup v1 or v2
-    const char *base_cgroup_path = "/sys/fs/cgroup";
-    // if (access("/sys/fs/cgroup/cgroup.controllers", F_OK) == -1) {
-    //     // v1
-    //     base_cgroup_path = "/sys/fs/cgroup/cpu";
-    // } else {
-    //     // v2
-    //     base_cgroup_path = ;
-    // }
+    if (access("/sys/fs/cgroup/cgroup.controllers", F_OK) == -1) {
+        // v1
+        base_cgroup_path = "/sys/fs/cgroup/perf_event";
+    } else {
+        // v2
+        base_cgroup_path = "/sys/fs/cgroup";
+    }
 
     char cgroup_path[PATH_MAX];
     snprintf(cgroup_path, sizeof(cgroup_path), "%s/%s", base_cgroup_path, KPERF_CGROUP_NAME);
@@ -96,7 +96,7 @@ int create_cgroup(int *cgroup_pids, int n) {
         perror("open");
         return -1;
     }
-
+    
     snprintf(cgroup_path, sizeof(cgroup_path), "%s/%s/cgroup.procs", base_cgroup_path, KPERF_CGROUP_NAME);
 
     int fd = open(cgroup_path, O_RDWR);

@@ -38,7 +38,12 @@ int timeout = -1;
 extern int kperf_cgroup_fd;
 extern int use_cgroup;
 
+int is_over = 0;
+pthread_t display_data_thread;
+
 void int_exit(int _) {
+    is_over = 1;
+    pthread_join(display_data_thread, NULL);
     for (auto x : res) {
         auto y = x.second;
         void *addr = y.first;
@@ -55,7 +60,7 @@ void int_exit(int _) {
             fprintf(fp, "</ul>\n");
             fprintf(fp, "<script src=\"report.js\"> </script>\n");
             fclose(fp);
-            kprintf("get %d samples, save report in report.html\n", gnode->c);
+            kprintf("collected %d samples, save report in report.html\n", gnode->c);
         }
         gnode = NULL;
     } else {
@@ -182,6 +187,20 @@ void handle_alarm(int sig) {
     int_exit(0);
 }
 
+void *show_collected_data(void *arg) {
+    while (!is_over) {
+        kprintf("collecting samples %d\n", gnode ? gnode->c : 0);
+        sleep(1);
+        if (is_over) {
+            return NULL;
+        }
+        // clear the line
+        printf("\033[F\033[K");
+    }
+
+    return NULL;
+}
+
 int main(int argc, const char *argv[]) {
     int *cgroup_pids = NULL;
     argparse_option options[] = {
@@ -244,6 +263,7 @@ int main(int argc, const char *argv[]) {
             kernel_callchain_only = 1;
             pid = -pid;
         }
+        kprintf("monitor pid %d\n", pid);
     }
 
     user_symbols = load_symbol_pid(pid);
@@ -306,7 +326,11 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    kprintf("collecting data ...\n");
+    // 创建一个线程
+    if (pthread_create(&display_data_thread, NULL, show_collected_data, NULL) != 0) {
+        perror("pthread_create failed");
+        return 1;
+    }
 
     unsigned long long head;
     int event_size;
@@ -342,6 +366,7 @@ int main(int argc, const char *argv[]) {
             kprintf("process finished\n");
             int_exit(0);
         }
+        // printf("samples: %d\n", gnode->c);
     }
 
     if (use_cgroup) {
