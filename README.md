@@ -9,6 +9,8 @@ linux kernel function callchain profiler
 ## compile
 
 ```bash
+git clone git@github.com:luzhixing12345/clib.git
+git submodule update --init --recursive
 make 
 ```
 

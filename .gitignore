@@ -229,3 +229,6 @@ kperf/paperplotlib
 /perf.*
 a.cpp
 report.html
+kperf
+a.py
+test/

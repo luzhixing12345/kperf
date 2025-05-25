@@ -3,23 +3,18 @@
 #include <poll.h>
 #include <limits.h>
 #include <unistd.h>
-#include <algorithm>
+#include <clib/clib.h>
 #include <cstddef>
 #include <cstdio>
 #include <map>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
-#include <vector>
 #include "node.h"
-#include "xargparse.h"
 #include "elf.h"
 #include "process.h"
 #include "perf.h"
 #include "common.h"
 #include "cgroup.h"
-
-const char *VERSION = "v0.0.1";
 
 int kernel_callchain_only = 0;
 
@@ -54,7 +49,15 @@ void int_exit(int _) {
     if (gnode != NULL) {
         FILE *fp = fopen("./report.html", "w");
         if (fp) {
-            fprintf(fp, "<head> <link rel=\"stylesheet\" href=\"report.css\"> </head>\n");
+            fprintf(fp, "<html lang=\"zh-CN\">\n");
+            fprintf(fp, "<head>\n");
+            fprintf(fp, "<meta charset=\"UTF-8\">\n");
+            fprintf(fp, "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n");
+            fprintf(fp, "<meta name=\"viewport\" content=\"width=device-width\">\n");
+            fprintf(fp, "<title>性能分析报告</title>\n");
+            fprintf(fp, "<link rel=\"stylesheet\" href=\"report.css\">\n");
+            fprintf(fp, "</head>\n");
+
             fprintf(fp, "<ul class=\"tree\">\n");
             gnode->printit(fp, 0);
             fprintf(fp, "</ul>\n");
@@ -204,36 +207,36 @@ void *show_collected_data(void *arg) {
 int main(int argc, const char *argv[]) {
     int *cgroup_pids = NULL;
     argparse_option options[] = {
-        XBOX_ARG_INT(&pid,
-                     "-p",
-                     "--pid",
-                     "pid > 0 collects program and kernel function callchain       pid < 0 "
-                     "collects kernel function callchain only",
-                     " <pid>",
-                     "pid"),
-        XBOX_ARG_INTS_GROUP(&cgroup_pids, NULL, NULL, "multiple pids", " <pid> ...", "cgroup_pids"),
-        XBOX_ARG_BOOLEAN(&use_cgroup, NULL, "--cgroup", "collect process in cgroup", NULL, "cgroup"),
-        XBOX_ARG_BOOLEAN(&kernel_callchain_only, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
-        XBOX_ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
-        XBOX_ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
-        XBOX_ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
-        XBOX_ARG_END()};
+        ARG_INT(&pid,
+                "-p",
+                "--pid",
+                "pid > 0 collects program and kernel function callchain       pid < 0 "
+                "collects kernel function callchain only",
+                " <pid>",
+                "pid"),
+        ARG_INTS_GROUP(&cgroup_pids, NULL, NULL, "multiple pids", " <pid> ...", "cgroup_pids"),
+        ARG_BOOLEAN(&use_cgroup, NULL, "--cgroup", "collect process in cgroup", NULL, "cgroup"),
+        ARG_BOOLEAN(&kernel_callchain_only, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
+        ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
+        ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
+        ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
+        ARG_END()};
 
-    XBOX_argparse parser;
-    XBOX_argparse_init(&parser, options, 0);
-    XBOX_argparse_describe(
+    argparse parser;
+    argparse_init(&parser, options, 0);
+    argparse_describe(
         &parser, "kperf", "kernel callchain profiler", "Full documentation: https://github.com/luzhixing12345/kperf");
-    XBOX_argparse_parse(&parser, argc, argv);
+    argparse_parse(&parser, argc, argv);
 
-    if (XBOX_ismatch(&parser, "help")) {
-        XBOX_argparse_info(&parser);
-        XBOX_free_argparse(&parser);
+    if (arg_ismatch(&parser, "help")) {
+        argparse_info(&parser);
+        free_argparse(&parser);
         return 0;
     }
 
-    if (XBOX_ismatch(&parser, "version")) {
-        printf("kperf version %s\n", VERSION);
-        XBOX_free_argparse(&parser);
+    if (arg_ismatch(&parser, "version")) {
+        printf("kperf version %s\n", CONFIG_VERSION);
+        free_argparse(&parser);
         return 0;
     }
 
@@ -243,11 +246,11 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    int cgroup_pid_num = XBOX_ismatch(&parser, "cgroup_pids");
+    int cgroup_pid_num = arg_ismatch(&parser, "cgroup_pids");
     if (use_cgroup) {
         if (!cgroup_pid_num) {
             eprintf("You must specify cgroup pids.\n");
-            XBOX_free_argparse(&parser);
+            free_argparse(&parser);
             return 1;
         }
         create_cgroup(cgroup_pids, cgroup_pid_num);
@@ -255,7 +258,7 @@ int main(int argc, const char *argv[]) {
     } else {
         if (pid == 0) {
             eprintf("You must specify a pid.\n");
-            XBOX_free_argparse(&parser);
+            free_argparse(&parser);
             return 1;
         }
 
@@ -372,7 +375,7 @@ int main(int argc, const char *argv[]) {
     if (use_cgroup) {
         close(kperf_cgroup_fd);
     }
-    XBOX_free_argparse(&parser);
+    free_argparse(&parser);
     int_exit(0);
     return 0;
 }
