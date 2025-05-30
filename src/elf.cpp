@@ -188,18 +188,19 @@ static unsigned long long parse_hex(char *p, int *n) {
 
 STORE_T *load_symbol_pid(int pid) {
     
-    char bb[256];
-    sprintf(bb, "/proc/%d/maps", pid);
-    FILE *fp = fopen(bb, "r");
-    if (fp == NULL)
+    char path[256];
+    sprintf(path, "/proc/%d/maps", pid);
+    FILE *fp = fopen(path, "r");
+    if (!fp)
         return NULL;
+
     STORE_T *store = new STORE_T();
     unsigned long long start, end, offset, inode;
     char *p;
     int i, c, j;
     char fname[128], xx[64], xxx[32], mod[16], idx[16];
     while (1) {
-        p = fgets(bb, sizeof(bb), fp);
+        p = fgets(path, sizeof(path), fp);
         if (p == NULL)
             break;
         if (sscanf(p, "%s %s %s %s %llu %s", xx, mod, xxx, idx, &inode, fname) != 6)
@@ -228,8 +229,8 @@ STORE_T *load_symbol_pid(int pid) {
         if (c == 0)
             continue;
         // remaining should contains '/' indicating this mmap is refering to a file
-        sprintf(bb, "/proc/%d/root%s", pid, fname);
-        load_symbol_from_file(bb, start, end - start, offset, *store);
+        sprintf(path, "/proc/%d/root%s", pid, fname);
+        load_symbol_from_file(path, start, end - start, offset, *store);
     }
     fclose(fp);
     if (store->size() == 0) {

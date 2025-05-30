@@ -1,0 +1,12 @@
+Source: kperf
+Section: utils
+Priority: optional
+Maintainer: kamilu <luzhixing12345@163.com>
+Standards-Version: 0.0.1
+Build-Depends: debhelper (>= 11)
+
+Package: kperf
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A lightweight Linux performance analysis tool
+ A short summary of what kperf does.

@@ -138,10 +138,13 @@ debug: all
 .PHONY: debug
 
 # compile program bin
-$(PROGRAM): $(OBJS) $(OBJS_DYNOPT) $(OTHEROBJS) $(GUEST_OBJS)
+$(PROGRAM): $(OBJS) $(OBJS_DYNOPT) $(OTHEROBJS) $(GUEST_OBJS) third_lib/clib/clib/libclib.a
 	$(E) -e "  LINK    \033[1;32m" $@ "\033[0m"
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(OBJS_DYNOPT) $(OTHEROBJS) $(GUEST_OBJS) $(LDFLAGS) $(LIBS_DYNOPT) $(LIBFDT_STATIC) -o $@
 	$(E) "  binary program $(PROGRAM) is ready."
+
+third_lib/clib/clib/libclib.a:
+	make -C third_lib/clib
 
 # compile static lib
 $(STATIC_LIB): $(OBJS) $(OTHEROBJS) $(GUEST_OBJS)

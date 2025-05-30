@@ -6,28 +6,38 @@ linux kernel function callchain profiler
 
 ![demo](./demo.gif)
 
+## install
+
+TODO
+
+```bash
+# Ubuntu/Debian
+sudo apt install kperf
+
+# CentOS/RHEL
+sudo yum install kperf
+```
+
 ## compile
 
 ```bash
-git clone git@github.com:luzhixing12345/clib.git
+# if you prefer to use http
+# git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+git clone git@github.com:luzhixing12345/kperf.git
 git submodule update --init --recursive
-make 
+make
 ```
 
-and you will get `src/kperf`
+and you will get `kperf`
 
 ## usage
-
-this program needs to read kernel symbols, so you should always use **sudo**
 
 specify the pid to monitor, the program will stop monitoring util the pid is finished or ctrl+c
 
 ```bash
 sudo ./src/kperf -p <pid>
 ```
-
-- pid > 0 means collect **program and kernel** function callchain 
-- pid < 0 means collect **kernel** function callchain only, or use `-k`
 
 for example
 

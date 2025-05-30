@@ -16,7 +16,7 @@
 #include "common.h"
 #include "cgroup.h"
 
-int kernel_callchain_only = 0;
+int check_kernel_callchain = 0;
 
 std::unordered_map<int, STORE_T *> pid_symbols;
 K_STORE_T *kernel_symbols = NULL;
@@ -140,7 +140,7 @@ int process_event(char *base, unsigned long long size, unsigned long long offset
                     r = r->add(std::string("unknown"));
                 }
             } else {
-                if (kernel_callchain_only)
+                if (check_kernel_callchain)
                     continue;
                 if (user_symbols) {
                     auto x = user_symbols->upper_bound(addr);
@@ -206,6 +206,7 @@ void *show_collected_data(void *arg) {
 
 int main(int argc, const char *argv[]) {
     int *cgroup_pids = NULL;
+    char *exe_cmd;
     argparse_option options[] = {
         ARG_INT(&pid,
                 "-p",
@@ -216,14 +217,15 @@ int main(int argc, const char *argv[]) {
                 "pid"),
         ARG_INTS_GROUP(&cgroup_pids, NULL, NULL, "multiple pids", " <pid> ...", "cgroup_pids"),
         ARG_BOOLEAN(&use_cgroup, NULL, "--cgroup", "collect process in cgroup", NULL, "cgroup"),
-        ARG_BOOLEAN(&kernel_callchain_only, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
+        ARG_BOOLEAN(&check_kernel_callchain, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
+        ARG_STR(&exe_cmd, NULL, "--", "command to run", NULL, "command"),
         ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
         ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
         ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
         ARG_END()};
 
     argparse parser;
-    argparse_init(&parser, options, 0);
+    argparse_init(&parser, options, ARGPARSE_ENABLE_CMD);
     argparse_describe(
         &parser, "kperf", "kernel callchain profiler", "Full documentation: https://github.com/luzhixing12345/kperf");
     argparse_parse(&parser, argc, argv);
@@ -240,12 +242,13 @@ int main(int argc, const char *argv[]) {
         return 0;
     }
 
-    // check if user is root or have sudo permission
-    if (geteuid() != 0) {
-        printf("You must be root to run this program.\n");
+    if (exe_cmd && pid) {
+        eprintf("You can't specify both pid and command.\n");
+        free_argparse(&parser);
         return 1;
     }
 
+    struct process_struct process;
     int cgroup_pid_num = arg_ismatch(&parser, "cgroup_pids");
     if (use_cgroup) {
         if (!cgroup_pid_num) {
@@ -255,18 +258,15 @@ int main(int argc, const char *argv[]) {
         }
         create_cgroup(cgroup_pids, cgroup_pid_num);
         pid = cgroup_pids[0];
-    } else {
-        if (pid == 0) {
-            eprintf("You must specify a pid.\n");
+    } else if (pid) {
+        if (!is_process_runing(pid)) {
+            eprintf("pid %d is not running\n", pid);
             free_argparse(&parser);
             return 1;
         }
-
-        if (pid < 0) {
-            kernel_callchain_only = 1;
-            pid = -pid;
-        }
-        kprintf("monitor pid %d\n", pid);
+    } else if (exe_cmd) {;
+        run_cmd(exe_cmd, &process);
+        pid = process.pid;
     }
 
     user_symbols = load_symbol_pid(pid);
@@ -302,7 +302,7 @@ int main(int argc, const char *argv[]) {
     if (use_cgroup) {
         perf_flags |= PERF_FLAG_PID_CGROUP;
     }
-    if (kernel_callchain_only) {
+    if (check_kernel_callchain) {
         attr.exclude_callchain_user = 1;
     }
     for (int i = 0; i < cpu_num && i < MAXCPU; i++) {

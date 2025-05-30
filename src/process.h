@@ -2,15 +2,16 @@
 #pragma once
 
 #include <sys/types.h>
-#include <poll.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-int is_running();
-int is_process_runing(pid_t pid);
+
+struct process_struct {
+    int pid;
+    int stdout_fd;
+
+    // private data
+    int pipefd[2];
+};
+
+int run_cmd(char *exe_cmd, struct process_struct *process);
+
+bool is_process_runing(pid_t pid);
