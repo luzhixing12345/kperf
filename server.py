@@ -107,10 +107,20 @@ def show_server_info(time, port: int):
     info(" to quit")
     info("\n\n    ")
 
+def check_port_available(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("localhost", port))
+            return True
+        except socket.error as e:
+            return False
+        except Exception as e:
+            return False
+
 def start_http_server(config, port=36001):
     # 切换到指定的目录
     directory = os.path.join(os.getcwd(), ".")
-    if port is None:
+    if port is None or not check_port_available(port):
         port = find_available_port()
     else:
         # check if port is available
