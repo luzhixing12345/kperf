@@ -1,6 +1,8 @@
 
 #include "elf.h"
 
+
+
 /*
  * load FUNC symbols refering to the section indicated by the offset, relocate
  * the virtual address
@@ -122,7 +124,7 @@ void parse_elf64(FILE *fp, unsigned long long v_addr, unsigned long long v_size,
 
 int load_symbol_from_file(const char *path, unsigned long long addr, unsigned long long size, unsigned long long offset,
                           STORE_T &store) {
-    // printf("loading symble from %s\n", path);
+    printf("loading symble from %s\n", path);
     FILE *fp = fopen(path, "rb");
     if (fp == NULL) {
         perror("fail to open file");
@@ -229,8 +231,8 @@ STORE_T *load_symbol_pid(int pid) {
         if (c == 0)
             continue;
         // remaining should contains '/' indicating this mmap is refering to a file
-        sprintf(path, "/proc/%d/root%s", pid, fname);
-        load_symbol_from_file(path, start, end - start, offset, *store);
+        // sprintf(path, "/proc/%d/root%s", pid, fname);
+        load_symbol_from_file(fname, start, end - start, offset, *store);
     }
     fclose(fp);
     if (store->size() == 0) {
@@ -243,8 +245,10 @@ STORE_T *load_symbol_pid(int pid) {
 /* parse kernel func symbols from /proc/kallsyms */
 K_STORE_T *load_kernel() {
     FILE *fp = fopen("/proc/kallsyms", "r");
-    if (fp == NULL)
+    if (fp == NULL) {
+        perror("fail to open /proc/kallsyms");
         return NULL;
+    }
     char *p;
     unsigned long long addr;
     int c;

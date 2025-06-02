@@ -15,6 +15,7 @@
 #include "perf.h"
 #include "common.h"
 #include "cgroup.h"
+#include "symbol.h"
 
 int check_kernel_callchain = 0;
 
@@ -36,6 +37,15 @@ extern int use_cgroup;
 int is_over = 0;
 pthread_t display_data_thread;
 
+char *get_language() {
+    // check locale
+    char *lang = getenv("LANG");
+    if (!lang) {
+        return lang;
+    }
+    return "en_US.UTF-8";
+}
+
 void int_exit(int _) {
     is_over = 1;
     pthread_join(display_data_thread, NULL);
@@ -49,12 +59,12 @@ void int_exit(int _) {
     if (gnode != NULL) {
         FILE *fp = fopen("./report.html", "w");
         if (fp) {
-            fprintf(fp, "<html lang=\"zh-CN\">\n");
+            fprintf(fp, "<html lang=\"%s\">\n", get_language());
             fprintf(fp, "<head>\n");
             fprintf(fp, "<meta charset=\"UTF-8\">\n");
             fprintf(fp, "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n");
             fprintf(fp, "<meta name=\"viewport\" content=\"width=device-width\">\n");
-            fprintf(fp, "<title>性能分析报告</title>\n");
+            fprintf(fp, "<title>profile report</title>\n");
             fprintf(fp, "<link rel=\"stylesheet\" href=\"report.css\">\n");
             fprintf(fp, "</head>\n");
 
@@ -206,7 +216,11 @@ void *show_collected_data(void *arg) {
 
 int main(int argc, const char *argv[]) {
     int *cgroup_pids = NULL;
-    char *exe_cmd;
+    char *exe_cmd = NULL;
+    int enable_debug = 0;
+    int rc = 0;
+    // log_init("/tmp/kperf.log");
+    log_set_level(LOG_INFO);
     argparse_option options[] = {
         ARG_INT(&pid,
                 "-p",
@@ -220,6 +234,7 @@ int main(int argc, const char *argv[]) {
         ARG_BOOLEAN(&check_kernel_callchain, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
         ARG_STR(&exe_cmd, NULL, "--", "command to run", NULL, "command"),
         ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
+        ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
         ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
         ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
         ARG_END()};
@@ -242,13 +257,21 @@ int main(int argc, const char *argv[]) {
         return 0;
     }
 
+    if (check_kernel_callchain) {
+        rc = load_kernel_symbol();
+        if (rc < 0) {
+            eprintf("load kernel symbol failed\n");
+            free_argparse(&parser);
+            return 1;
+        }
+    }
+
     if (exe_cmd && pid) {
         eprintf("You can't specify both pid and command.\n");
         free_argparse(&parser);
         return 1;
     }
 
-    struct process_struct process;
     int cgroup_pid_num = arg_ismatch(&parser, "cgroup_pids");
     if (use_cgroup) {
         if (!cgroup_pid_num) {
@@ -265,14 +288,22 @@ int main(int argc, const char *argv[]) {
             return 1;
         }
     } else if (exe_cmd) {;
-        run_cmd(exe_cmd, &process);
-        pid = process.pid;
+        struct cmd_arg args;
+        parseline(exe_cmd, &args);
+        rc = load_user_symbol(args.argv[0]);
+        if (rc < 0) {
+            eprintf("load user symbol failed\n");
+            free_argparse(&parser);
+            return 1;
+        }
+        pid = run_cmd(&args);
+        free_cmd_arg(&args);
     }
 
     user_symbols = load_symbol_pid(pid);
-    kprintf("loaded user symbols\n");
+    kprintf("loaded user symbols [%lu]\n", user_symbols->size());
     kernel_symbols = load_kernel();
-    kprintf("loaded kernel symbols\n");
+    kprintf("loaded kernel symbols [%lu]\n", kernel_symbols->size());
 
     signal(SIGINT, int_exit);
     signal(SIGTERM, int_exit);

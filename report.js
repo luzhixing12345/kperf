@@ -483,16 +483,8 @@ function createHelpModal() {
             <span class="modal-close" onclick="hideHelp()">&times;</span>
             <h2>${t('helpTitle')}</h2>
             <div class="modal-body">
-                <h3>${t('shortcuts')}</h3>
-                <ul class="shortcut-list">
-                    <li class="shortcut-item">
-                        <span>${t('searchShortcut')}</span>
-                        <span class="shortcut-key">Ctrl + F</span>
-                    </li>
-                </ul>
-                
                 <h3>${t('features')}</h3>
-                <ul>
+                <ul class="feature-list">
                     <li>${t('feature1')}</li>
                     <li>${t('feature2')}</li>
                     <li>${t('feature3')}</li>
@@ -705,15 +697,5 @@ document.addEventListener('keydown', function (event) {
     if (event.ctrlKey && event.key === 'f') {
         event.preventDefault();
         createSearchBox();
-    }
-    // Ctrl + E: 展开全部
-    else if (event.ctrlKey && event.key === 'e') {
-        event.preventDefault();
-        expandAll();
-    }
-    // Ctrl + C: 折叠全部
-    else if (event.ctrlKey && event.key === 'c') {
-        event.preventDefault();
-        collapseAll();
     }
 });

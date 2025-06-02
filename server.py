@@ -166,4 +166,4 @@ def start_http_server(config, port=36001):
         print("Server closed.")
 
 
-start_http_server(0, port=36001)
+start_http_server(0, port=8000)
