@@ -214,15 +214,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-a.c
-a
-b
-b.c
-src/kperf
 .vscode/
 docs/
 test.py
-kperf/paperplotlib
 *.png
 *.json
 1.py
@@ -231,4 +225,3 @@ a.cpp
 report.html
 kperf
 a.py
-test/
