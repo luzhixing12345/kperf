@@ -1,44 +1,43 @@
 # kperf
 
-## install
+kperf is a ebpf-based profiler for linux kernel and user space program, with a more user-friendly web interface.
 
-TODO
+> [!NOTE]
+> this project is not finished yet
+
+## Install
+
+from PYPI
 
 ```bash
 pip install kperf
 ```
 
-## compile
-
-install ebpf-tools
+or from Ubuntu/Debian APT
 
 ```bash
-sudo apt install 
+sudo apt install kperf
 ```
 
-```bash
-make
-```
-
-## usage
+## Quick Start
 
 specify the pid to monitor, the program will stop monitoring util the pid is finished or ctrl+c
 
 ```bash
-sudo ./src/kperf -p <pid>
+sudo kperf -p <pid>
 ```
 
 for example
 
 ```bash
 # program function callchain + kernel function callchain
-sudo ./src/kperf -p 100
-sudo ./src/kperf -p $(pidof abc)
+sudo kperf -p 100
+sudo kperf -p $(pidof abc)
 
 # kernel function callchain
-sudo ./src/kperf -p -100
-sudo ./src/kperf -p 100 -k
-sudo ./src/kperf -p 100 --kernel
+sudo kperf -p -100
+sudo kperf -p 100 -k
+sudo kperf -p 100 --kernel
 ```
 
 ## setup timer
@@ -47,7 +46,7 @@ you could use `-t` to setup a timer, the program will stop monitoring when time'
 
 ```bash
 # monitor 60s
-sudo ./src/kperf -p <pid> -t 60
+sudo kperf -p <pid> -t 60
 ```
 
 > Time is measured in seconds
@@ -61,8 +60,19 @@ if your program would create multiple processes(pids) or you are using mpi, try 
 suppose your program name is abc
 
 ```bash
-sudo ./src/kperf --cgroup $(pgrep abc)
+sudo kperf --cgroup $(pgrep abc)
 ```
+
+## build from scratch
+
+```bash
+git submodule update --init --recursive
+```
+
+```bash
+make -j
+```
+
 
 ## result
 

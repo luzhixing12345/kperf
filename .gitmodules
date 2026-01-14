@@ -1,3 +1,6 @@
-[submodule "third_lib/clib"]
-	path = third_lib/clib
-	url = git@github.com:luzhixing12345/clib.git
+[submodule "libbpf"]
+	path = libbpf
+	url = https://github.com/libbpf/libbpf.git
+[submodule "bpftool"]
+	path = bpftool
+	url = https://github.com/libbpf/bpftool
