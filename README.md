@@ -1,35 +1,24 @@
 # kperf
 
-linux kernel function callchain profiler
-
-> main source code comes from [linux-tools profiler](https://github.com/zq-david-wang/linux-tools/tree/main/perf/profiler)
-
-![demo](./demo.gif)
-
 ## install
 
 TODO
 
 ```bash
-# Ubuntu/Debian
-sudo apt install kperf
-
-# CentOS/RHEL
-sudo yum install kperf
+pip install kperf
 ```
 
 ## compile
 
-```bash
-# if you prefer to use http
-# git config --global url."https://github.com/".insteadOf "git@github.com:"
+install ebpf-tools
 
-git clone git@github.com:luzhixing12345/kperf.git
-git submodule update --init --recursive
-make
+```bash
+sudo apt install 
 ```
 
-and you will get `kperf`
+```bash
+make
+```
 
 ## usage
 

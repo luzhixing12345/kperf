@@ -8,13 +8,12 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-paperplotlib="*"
-prettytable="*"
 psutil="*"
+websockets="*"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-kperf = 'kperf.main:main'
+kperf = 'kperf.server.main:main'

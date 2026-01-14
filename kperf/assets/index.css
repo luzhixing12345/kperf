@@ -1,0 +1,600 @@
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: Monaco, Consolas, 'Courier New', monospace;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    background-color: #fff;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.search-button {
+    padding: 8px 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: inherit;
+}
+
+.search-button:hover {
+    background-color: #0056b3;
+}
+
+/* Tree structure */
+.tree-container {
+    display: flex;
+    gap: 20px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tree {
+    flex: 1;
+    font-size: 14px;
+}
+
+.marked-panel {
+    width: 200px;
+    border-left: 1px solid #eee;
+    padding-left: 20px;
+}
+
+.marked-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #666;
+}
+
+.marked-item {
+    padding: 6px 10px;
+    margin: 4px 0;
+    background: #f8f9fa;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #333;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.marked-item:hover {
+    background: #e9ecef;
+}
+
+.marked-item .remove {
+    color: #dc3545;
+    padding: 0 4px;
+    font-size: 14px;
+}
+
+.no-marks {
+    color: #666;
+    font-size: 12px;
+    font-style: italic;
+}
+
+/* Tree branches */
+.tree ul {
+    display: none;
+    margin: 0;
+    padding-left: 20px;
+}
+
+.tree input[type="checkbox"] {
+    display: none;
+}
+
+.tree input[type="checkbox"]:checked~ul {
+    display: block;
+}
+
+.tree li {
+    list-style-type: none;
+    position: relative;
+    padding: 5px 0 5px 20px;
+}
+
+.tree_label {
+    position: relative;
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Expand/Collapse icons */
+label.tree_label:before {
+    background: #007bff;
+    color: #fff;
+    position: absolute;
+    left: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    content: '+';
+    text-align: center;
+    line-height: 14px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+:checked~label.tree_label:before {
+    content: '–';
+    background: #dc3545;
+    line-height: 13px;
+}
+
+/* Tree branches */
+.tree li:before {
+    position: absolute;
+    top: 15px;
+    bottom: 0;
+    left: 8px;
+    display: block;
+    width: 0;
+    border-left: 1px solid #ddd;
+    content: '';
+}
+
+.tree li:last-child:before {
+    display: none;
+}
+
+/* Performance colors */
+.performance-high {
+    color: #dc3545 !important;
+}
+
+.performance-normal {
+    color: #000000 !important;
+}
+
+.performance-low {
+    color: #6c757d !important;
+}
+
+/* Highlight and marked states */
+.highlight {
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+}
+
+.marked {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+/* Tooltips */
+.tooltip {
+    position: relative;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Controls bar */
+.controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.controls-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.controls-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.help-button {
+    padding: 8px 16px;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.help-button:hover {
+    background-color: #5a6268;
+}
+
+/* Search box with autocomplete */
+.search-container {
+    position: relative;
+    flex: 1;
+    margin-bottom: 20px;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-input-container {
+    position: relative;
+    flex: 1;
+    box-sizing: border-box;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid #ddd;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 0 0 4px 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: 1px solid #ddd;
+}
+
+.autocomplete-item:hover {
+    background-color: #f8f9fa;
+}
+
+.autocomplete-item.active {
+    background-color: #e9ecef;
+}
+
+/* Tags panel */
+.tags-panel {
+    width: 200px;
+    border-left: 1px solid #eee;
+    padding-left: 20px;
+}
+
+.tags-panel h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.tags-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tag {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tag:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.tag .remove {
+    color: #dc3545;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.tag .remove:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Help modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: relative;
+    background: #fff;
+    margin: 30px auto;
+    padding: 20px;
+    padding-top: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.modal-close {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.modal-body {
+    margin-top: 20px;
+}
+
+.shortcut-list {
+    list-style: none;
+    padding: 0;
+}
+
+.shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.shortcut-key {
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+/* 语言设置样式 */
+.language-settings {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.language-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.language-button {
+    padding: 8px 16px;
+    border: 1px solid #ced4da;
+    background: #fff;
+    color: #495057;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.language-button:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.language-button.active {
+    background: #007bff;
+    color: #fff;
+    border-color: #007bff;
+}
+
+.language-button.active:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+/* 颜色设置样式 */
+.color-settings {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.setting-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 10px;
+}
+
+.setting-group label {
+    min-width: 160px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.setting-group input[type="number"] {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.apply-button {
+    padding: 8px 16px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: inherit;
+    margin-bottom: 15px;
+}
+
+.apply-button:hover {
+    background-color: #218838;
+}
+
+.color-legend {
+    border-top: 1px solid #dee2e6;
+    padding-top: 15px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 10px;
+}
+
+.color-sample {
+    display: inline-block;
+    width: 20px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+}
+
+.color-sample.high-color {
+    background-color: #dc3545;
+}
+
+.color-sample.normal-color {
+    background-color: #000000;
+}
+
+.color-sample.low-color {
+    background-color: #6c757d;
+}
+
+@keyframes highlight-pulse {
+    0% {
+        background-color: #fff3cd;
+        transform: scale(1);
+    }
+
+    50% {
+        background-color: #f4cb4e;
+        transform: scale(1.02);
+    }
+
+    100% {
+        background-color: transparent;
+        transform: scale(1);
+    }
+}
+
+.highlight-pulse {
+    animation: highlight-pulse 0.2s ease-in-out;
+}
+
+/* 模态框滚动条样式 */
+.modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

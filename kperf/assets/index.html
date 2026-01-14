@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <head>
+        <link rel="stylesheet" href="index.css">
+    </head>
+    <title>kperf</title>
+</head>
+
+<body>
+    <div class="controls">
+        <div class="controls-left">
+            <button class="search-button" id="expandAllBtn">Expand All</button>
+            <button class="search-button" id="collapseAllBtn">Collapse All</button>
+        </div>
+        <div class="controls-right">
+            <button class="help-button" id="helpBtn">Help</button>
+        </div>
+    </div>
+
+    <div class="search-container">
+        <div class="search-box">
+            <div class="search-input-container">
+                <input type="text" class="search-input" placeholder="Enter search keywords...">
+                <div class="autocomplete-items" style="display: none;"></div>
+            </div>
+            <!-- Removed right-side Search/Clear buttons to avoid overlap; search via Enter -->
+        </div>
+    </div>
+
+    <div class="tree-container">
+        <div class="tree"></div>
+        <div class="marked-panel">
+            <h3>Marked Functions</h3>
+            <p class="no-marks">No marks</p>
+        </div>
+    </div>
+
+    <!-- Help modal (static) -->
+    <div class="modal" id="helpModal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close" id="modalClose">&times;</span>
+            <h2>Help</h2>
+            <div class="modal-body">
+                <h3>Features</h3>
+                <ul class="feature-list">
+                    <li>Right-click function names to mark/unmark</li>
+                    <li>Marked functions are shown in the right panel, click to locate</li>
+                    <li>Search supports fuzzy matching and auto-completion</li>
+                </ul>
+
+                <h3>Color Settings</h3>
+                <div class="color-settings">
+                    <div class="setting-group">
+                        <label>High ratio threshold (red):</label>
+                        <input type="number" id="highThreshold" value="40" min="0" max="100" step="1">
+                        <span>%</span>
+                    </div>
+                    <div class="setting-group">
+                        <label>Low ratio threshold (gray):</label>
+                        <input type="number" id="lowThreshold" value="5" min="0" max="100" step="1">
+                        <span>%</span>
+                    </div>
+                    <button class="apply-button" id="applyColorBtn">Apply Settings</button>
+                    <div class="color-legend">
+                        <div class="legend-item">
+                            <span class="color-sample high-color"></span>
+                            <span id="legendHigh">High ratio (red) - greater than 40%</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="color-sample normal-color"></span>
+                            <span id="legendNormal">Normal ratio (black) - 5% to 40%</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="color-sample low-color"></span>
+                            <span id="legendLow">Low ratio (gray) - less than 5%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="index.js"> </script>
+$websocket-code
+
+</html>

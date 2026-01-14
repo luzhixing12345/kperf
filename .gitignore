@@ -223,5 +223,5 @@ test.py
 /perf.*
 a.cpp
 report.html
-kperf
 a.py
+kperf-result
