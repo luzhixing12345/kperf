@@ -91,19 +91,36 @@ function fuzzySearch(pattern, str) {
 
 // 创建控制栏
 function createControls() {
-    // Bind to static HTML controls if present
-    const expandBtn = document.getElementById('expandAllBtn') || document.querySelector('.controls-left .search-button:first-child');
-    const collapseBtn = document.getElementById('collapseAllBtn') || document.querySelector('.controls-left .search-button:nth-child(2)');
-    const helpBtn = document.getElementById('helpBtn') || document.querySelector('.help-button');
+    // Bind tab buttons and help button
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tab = btn.getAttribute('data-tab');
+            switchTab(tab);
+        });
+    });
 
-    if (expandBtn) {
-        expandBtn.addEventListener('click', () => expandAll());
-    }
-    if (collapseBtn) {
-        collapseBtn.addEventListener('click', () => collapseAll());
-    }
-    if (helpBtn) {
-        helpBtn.addEventListener('click', () => showHelp());
+    const helpBtn = document.getElementById('helpBtn') || document.querySelector('.help-button');
+    if (helpBtn) helpBtn.addEventListener('click', () => showHelp());
+}
+
+// Switch visible tab content
+function switchTab(name) {
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(c => c.style.display = 'none');
+
+    const active = document.getElementById('tab-' + name);
+    if (active) active.style.display = '';
+
+    // update active class on tab buttons
+    document.querySelectorAll('.tab-button').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-tab') === name);
+    });
+
+    // If switching back to function tab, ensure tree is initialized/collapsed
+    if (name === 'function') {
+        ensureCollapsed();
+        // re-run any layout-sensitive functions if needed
     }
 }
 
@@ -214,7 +231,21 @@ function createSearchBox() {
         });
     };
 
-    if (searchBtn) searchBtn.addEventListener('click', () => performSearch(input.value));
+    if (searchBtn) {
+        // Toggle visibility of the search container when the search icon is clicked
+        searchBtn.addEventListener('click', (e) => {
+            const container = document.querySelector('.search-container');
+            if (!container) return;
+            const isVisible = container.classList.contains('visible');
+            if (!isVisible) {
+                container.classList.add('visible');
+                // focus the input when shown
+                setTimeout(() => { input.focus(); }, 0);
+            } else {
+                container.classList.remove('visible');
+            }
+        });
+    }
     if (clearBtn) clearBtn.addEventListener('click', () => { clearHighlight(); input.value = ''; autocompleteList.style.display = 'none'; });
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && activeIndex === -1) performSearch(input.value); });
 }
