@@ -73,21 +73,9 @@ git submodule update --init --recursive
 make -j
 ```
 
-
-## result
-
-the program will generate report.html
-
-ctrl+f search all results, right click to highlight the marker
-
-see the demo gif above
-
-## help
-
-welcome to feedback
-
 ## reference
 
+- https://www.shadcn.io/
 - [linux-tools profiler](https://github.com/zq-david-wang/linux-tools/tree/main/perf/profiler)
 - [awesome-profiling](https://github.com/msaroufim/awesome-profiling)
 - [cpplinks](https://github.com/MattPD/cpplinks)

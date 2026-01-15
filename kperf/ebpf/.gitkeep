@@ -1,0 +1,7 @@
+
+ebpf folder contain a set of eBPF programs that can be used to monitor and analyze the performance. The program is written in C and compiled using clang and LLVM.
+
+kernel bpf source code is from kperf/src/bpf/
+user bpf source code is from kperf/src/bpf_loader/
+
+after compile, kernel and user bpf program will be copied into kperf/ebpf/ folder

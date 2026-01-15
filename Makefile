@@ -22,7 +22,7 @@ rwildcard = $(foreach d, $(filter-out .., $(wildcard $1*)), \
 #      $ gcc $(SRC_PATH)/file1.$(SRC_EXT) -o file1
 #      $ gcc $(SRC_PATH)/file2.$(SRC_EXT) -o file2
 # ------------------------- #
-default: all
+default: all bpf
 
 # ------------------------- #
 #          PROJECT          #
@@ -32,7 +32,7 @@ SRC_PATH    	:= src/bpf_loader
 SRC_EXT     	:= c
 BUILD_PATH 		:= ./build
 EXCLUDE_SRC 	:= # src/func.c
-TARGET      	:= kperf
+TARGET      	:= bpf_loader
 
 # ------------------------- #
 #            LIB            #
@@ -110,10 +110,6 @@ WARNING += -Wno-unused-result
 # if SRC_EXT is c
 ifeq ($(SRC_EXT),c)
 WARNING += -Wnested-externs
-# if CC is gcc
-ifeq ($(CC),gcc)
-WARNING += -Wno-discarded-qualifiers
-endif
 endif
 CFLAGS	+= $(WARNING)
 
@@ -257,9 +253,25 @@ $(T3): $(OBJS-T3)
 multi-exe: $(MULTI_EXE_TARGETS)
 .PHONY: multi-exe
 
+# ------------------------- #
+#        bpf program        #
+# ------------------------- #
 
-bpf: src/bpf/main.c
-	clang -O2 -g -target bpf -c $< -o build/kperf.bpf.o
+BPF_PATH = src/bpf
+BPF_SRC = $(call rwildcard, $(BPF_PATH), %.bpf.c)
+BPF_OBJS = $(BPF_SRC:.bpf.c=.bpf.o)
+DEPS	+= $(foreach obj,$(BPF_OBJS),\
+		$(subst $(comma),_,$(dir $(obj)).$(notdir $(obj)).d))
+CLANG   = clang
+
+$(BPF_OBJS):
+%.bpf.o: %.bpf.c
+	$(E) "  CLANG      %s\n" $@
+	$(Q) $(CLANG) $(c_flags) -target bpf -c $< -o $@
+	$(Q) mkdir -p $(BUILD_PATH)/bpf
+	$(Q) cp $@ $(BUILD_PATH)/bpf
+
+bpf: $(BPF_OBJS)
 
 CFLAGS_DYNOPT += -fPIC
 $(OBJS):
@@ -292,6 +304,7 @@ clean:
 	$(Q) rm -f $(LIBFDT_STATIC)
 	$(Q) rm -f $(LIBFDT_DYNAMIC)
 	$(Q) rm -f $(MULTI_EXE_TARGETS) $(MULTI_EXE_OBJS)
+	$(Q) rm -f $(BPF_OBJS)
 
 release:
 	$(MAKE) -j4
