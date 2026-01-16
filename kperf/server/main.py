@@ -5,6 +5,14 @@ from pathlib import Path
 from .config import *
 from . import config
 from .server import start_http_server, set_start_time
+from .libbpf import *
+
+def load_bpf_program():
+    # bpf_program = BPFProgram()
+    # bpf_program.load_program()
+    # bpf_program.attach_kprobe(event="sys_execve", fn_name="sys_execve_entry")
+    # bpf_program.attach_kretprobe(event="sys_execve", fn_name="sys_execve_exit")
+    ...
 
 
 def run_profiler():
@@ -44,15 +52,17 @@ def run_profiler():
 def main():
     parser = argparse.ArgumentParser(description="Kperf Server")
     parser.add_argument("--port", type=int, default=PORT, help="Port to run the server on")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
+    parser.add_argument("--generate", "-g", action="store_true", help="Only generate the result files")
     args = parser.parse_args()
 
     set_start_time()
 
+    load_bpf_program()
     run_profiler()
 
     # Start the server
-    start_http_server(port=args.port)
+    if not args.generate:
+        start_http_server(port=args.port)
 
 
 if __name__ == "__main__":

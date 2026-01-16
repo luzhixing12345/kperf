@@ -219,10 +219,9 @@ docs/
 test.py
 *.png
 *.json
-1.py
 /perf.*
-a.cpp
-report.html
-a.py
 kperf-result
 vmlinux.h
+out*
+/*.svg
+/profiler

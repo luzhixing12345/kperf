@@ -22,18 +22,18 @@ rwildcard = $(foreach d, $(filter-out .., $(wildcard $1*)), \
 #      $ gcc $(SRC_PATH)/file1.$(SRC_EXT) -o file1
 #      $ gcc $(SRC_PATH)/file2.$(SRC_EXT) -o file2
 # ------------------------- #
-DEFAULT_TARGETS := all bpf
+DEFAULT_TARGETS := each
 default: $(DEFAULT_TARGETS)
 
 # ------------------------- #
 #          PROJECT          #
 # ------------------------- #
 CC          	:= gcc
-SRC_PATH    	:= src/bpf_loader
+SRC_PATH    	:= .
 SRC_EXT     	:= c
 BUILD_PATH 		:= .
 EXCLUDE_SRC 	:= # src/func.c
-TARGET      	:= profiler
+TARGET      	:= 
 
 # ------------------------- #
 #            LIB            #
@@ -62,9 +62,9 @@ MULTI_EXE_OBJS 	  	:= $(OBJS-T1) $(OBJS-T2) $(OBJS-T3)
 # ------------------------- #
 #          FLAGS            #
 # ------------------------- #
-CFLAGS 			:= -O2
-INCLUDE_PATH 	:= -I./libbpf/include
-LDFLAGS 		:= -L./libbpf/src -lbpf -lelf -lz
+CFLAGS 			:= 
+INCLUDE_PATH 	:= 
+LDFLAGS 		:= 
 DEFINES     	:= # -DDEBUG
 CFLAGS          += $(INCLUDE_PATH)
 
@@ -72,10 +72,10 @@ CFLAGS          += $(INCLUDE_PATH)
 #     BUILD DEPENDENCIES    #
 # ------------------------- #
 # for git submodule build dependencies
-BUILD_DEP_LIB	:= #libbpf bpftool
+BUILD_DEP_LIB	:= libbpf bpftool
 # creat a dep-<name> target for each dependency $(DEP_TARGETS)
-# dep-libbpf: CMD = $(MAKE) -C libbpf/src
-# dep-bpftool: CMD = $(MAKE) -C bpftool/src
+dep-libbpf: CMD = $(MAKE) -C libbpf/src
+dep-bpftool: CMD = $(MAKE) -C bpftool/src
 
 # ------------------------- #
 #          BINARIES         #
@@ -229,7 +229,7 @@ debug: default
 $(PROGRAM): $(OBJS)
 	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LDFLAGS) -o $@
-	$(E) "  Binary  $(PROGRAM) is ready.\n"
+	$(E) "  Binary program $(PROGRAM) is ready.\n"
 
 # ------------------------- #
 #            libs           #
@@ -295,7 +295,7 @@ CLANG   = clang
 
 $(BPF_OBJS):
 %.bpf.o: %.bpf.c
-	$(E) "  CLANG   %s\n" $@
+	$(E) "  CLANG      %s\n" $@
 	$(Q) $(CLANG) $(c_flags) -target bpf -c $< -o $@
 	$(Q) mkdir -p $(BUILD_PATH)/bpf
 	$(Q) cp $@ $(BUILD_PATH)/bpf

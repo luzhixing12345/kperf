@@ -5,9 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <head>
-        <link rel="stylesheet" href="index.css">
-    </head>
+    <link rel="stylesheet" href="index.css">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <title>kperf</title>
 </head>
 
@@ -19,6 +18,7 @@
                 <button class="tab-button" data-tab="net" role="tab">net</button>
                 <button class="tab-button" data-tab="disk" role="tab">disk</button>
                 <button class="tab-button" data-tab="io" role="tab">io</button>
+                <button class="tab-button" data-tab="lock" role="tab">lock</button>
             </div>
         </div>
         <div class="controls-right">
@@ -62,6 +62,10 @@
         </div>
 
         <div id="tab-io" class="tab-content" style="display:none;">
+            <div class="placeholder">$io</div>
+        </div>
+
+        <div id="tab-lock" class="tab-content" style="display:none;">
             <div class="placeholder">$io</div>
         </div>
     </div>

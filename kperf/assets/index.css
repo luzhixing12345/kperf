@@ -353,6 +353,15 @@ label.tree_label:before {
     font-size: 14px;
     font-family: inherit;
     box-sizing: border-box;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.search-input:focus {
+    border-color: #b0b0b0;
+    /* slightly darker but subtle */
+    box-shadow: 0 0 0 3px rgba(11, 22, 33, 0.03);
+    /* very subtle focus ring */
+    outline: none;
 }
 
 .autocomplete-items {

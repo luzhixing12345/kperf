@@ -112,7 +112,7 @@ def show_server_info(time, port: int, result_dir):
     info(f"  ready in {time} ms")
     info("\n\n    ")
     info(ARROW_CHAR, "green")
-    info("Local:  ", "strong")
+    info("Local:   ", "strong")
     info(f"http://127.0.0.1:{port}/{result_dir}/index.html", "blue")
     info("\n    ")
     info(ARROW_CHAR, "green")
@@ -171,7 +171,7 @@ def start_http_server(result_dir: str = RESULT_DIR, port: int = PORT):
 
         try:
             while True:
-                clear_screen()
+                # clear_screen()
                 show_server_info((int((end_time - start_time) * 1000)), port, result_dir)
                 command = input()
                 if command.lower() == "q":
