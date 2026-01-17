@@ -224,4 +224,5 @@ kperf-result
 vmlinux.h
 out*
 /*.svg
-/profiler
+src/kperf/kperf
+a.c

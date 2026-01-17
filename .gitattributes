@@ -1,0 +1,9 @@
+# 默认：所有文件不参与语言统计
+* linguist-detectable=false
+
+# 只允许 Python
+*.py linguist-detectable=true
+
+# 只允许 C
+*.c linguist-detectable=true
+*.h linguist-detectable=true

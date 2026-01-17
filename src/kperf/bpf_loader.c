@@ -2,14 +2,9 @@
 #include <bpf/libbpf.h>
 #include <unistd.h>
 
-int main(int argc, char** argv) {
-    struct bpf_object* obj;
+int load_bpf_program(char *file_path) {
+    struct bpf_object *obj;
     int err;
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <BPF object file>\n", argv[0]);
-        return 1;
-    }
-    char* file_path = argv[1];
 
     obj = bpf_object__open_file(file_path, NULL);
     if (!obj) {
@@ -23,7 +18,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    struct bpf_program* prog = bpf_object__find_program_by_name(obj, "handle_tp");
+    struct bpf_program *prog = bpf_object__find_program_by_name(obj, "handle_tp");
     if (!prog) {
         fprintf(stderr, "Cannot find BPF program\n");
         return 1;
@@ -33,7 +28,7 @@ int main(int argc, char** argv) {
     printf("prog type = %d\n", bpf_program__get_type(prog));
 
     // attach tracepoint
-    struct bpf_link* link;
+    struct bpf_link *link;
     link = bpf_program__attach_tracepoint(prog, "syscalls", "sys_enter_write");
     if (!link) {
         fprintf(stderr, "Failed to attach tracepoint\n");

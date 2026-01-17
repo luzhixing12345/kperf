@@ -29,11 +29,11 @@ default: $(DEFAULT_TARGETS)
 #          PROJECT          #
 # ------------------------- #
 CC          	:= gcc
-SRC_PATH    	:= src/bpf_loader
+SRC_PATH    	:= src/kperf
 SRC_EXT     	:= c
-BUILD_PATH 		:= .
+BUILD_PATH 		:= build
 EXCLUDE_SRC 	:= # src/func.c
-TARGET      	:= profiler
+TARGET      	:= kperf
 
 # ------------------------- #
 #            LIB            #
@@ -63,8 +63,8 @@ MULTI_EXE_OBJS 	  	:= $(OBJS-T1) $(OBJS-T2) $(OBJS-T3)
 #          FLAGS            #
 # ------------------------- #
 CFLAGS 			:= -O2
-INCLUDE_PATH 	:= -I./libbpf/include
-LDFLAGS 		:= -L./libbpf/src -lbpf -lelf -lz
+INCLUDE_PATH 	:= 
+LDFLAGS 		:= -lbpf -lelf -lz
 DEFINES     	:= # -DDEBUG
 CFLAGS          += $(INCLUDE_PATH)
 
@@ -332,7 +332,9 @@ clean:
 	$(Q) rm -f $(DEPS) $(OBJS)
 	$(Q) rm -f $(EXECUTABLES)
 	$(Q) [ -f $(PROGRAM) ] && rm -f $(PROGRAM) || true
-	$(Q) rm -rf $(BUILD_BIN_PATH) $(BUILD_LIB_PATH) $(BUILD_PATH) > /dev/null 2>&1 || true
+	$(Q) if [ -n "$(BUILD_BIN_PATH)" -a "$(BUILD_BIN_PATH)" != "." -a "$(BUILD_BIN_PATH)" != "$(SRC_PATH)" ]; then rm -rf "$(BUILD_BIN_PATH)" > /dev/null 2>&1 || true; fi
+	$(Q) if [ -n "$(BUILD_LIB_PATH)" -a "$(BUILD_LIB_PATH)" != "." -a "$(BUILD_LIB_PATH)" != "$(SRC_PATH)" ]; then rm -rf "$(BUILD_LIB_PATH)" > /dev/null 2>&1 || true; fi
+	$(Q) if [ -n "$(BUILD_PATH)" -a "$(BUILD_PATH)" != "." -a "$(BUILD_PATH)" != "$(SRC_PATH)" ]; then rm -rf "$(BUILD_PATH)" > /dev/null 2>&1 || true; fi
 	$(Q) rm -f $(LIBFDT_STATIC)
 	$(Q) rm -f $(LIBFDT_DYNAMIC)
 	$(Q) rm -f $(MULTI_EXE_TARGETS) $(MULTI_EXE_OBJS)
