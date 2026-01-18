@@ -4,6 +4,7 @@
 VERSION 		:= 0
 PATCHLEVEL 		:= 0
 SUBLEVEL 		:= 1
+MAKEFLAGS 		+= -j$(shell nproc)
 
 rwildcard = $(foreach d, $(filter-out .., $(wildcard $1*)), \
              $(call rwildcard,$d/,$2) $(filter $2, $d))
@@ -64,7 +65,7 @@ MULTI_EXE_OBJS 	  	:= $(OBJS-T1) $(OBJS-T2) $(OBJS-T3)
 # ------------------------- #
 CFLAGS 			:= -O2
 INCLUDE_PATH 	:= 
-LDFLAGS 		:= -lbpf -lelf -lz
+LDFLAGS 		:= -lbpf -lelf -lz -lpthread
 DEFINES     	:= # -DDEBUG
 CFLAGS          += $(INCLUDE_PATH)
 

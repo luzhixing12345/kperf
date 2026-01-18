@@ -28,3 +28,5 @@ void free_symbol_table(struct symbol_table *st);
 void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module);
 int load_user_symbols(struct symbol_table *st, int pid);
 int load_kernel_symbols(struct symbol_table *st);
+uint64_t get_symbol_addr(struct symbol_table *st, const char *name);
+struct symbol *find_symbol(struct symbol_table *st, uint64_t addr);

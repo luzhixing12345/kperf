@@ -1,15 +1,230 @@
 
+#define _GNU_SOURCE
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <elf.h>
+#include <link.h>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <elf.h>
+#include <gelf.h>
 #include "log.h"
 #include "symbol.h"
 #include "utils.h"
-#include "parse_elf.h"
+
+static int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start, uint64_t map_offset) {
+    DEBUG("load elf file: %s\n", elf_path);
+
+    if (elf_version(EV_CURRENT) == EV_NONE) {
+        fprintf(stderr, "libelf init failed\n");
+        return 1;
+    }
+
+    int fd = open(elf_path, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return 1;
+    }
+
+    Elf *e = elf_begin(fd, ELF_C_READ, NULL);
+    if (!e) {
+        fprintf(stderr, "elf_begin failed\n");
+        return 1;
+    }
+
+    Elf_Scn *scn = NULL;
+    GElf_Shdr shdr;
+
+    while ((scn = elf_nextscn(e, scn)) != NULL) {
+        gelf_getshdr(scn, &shdr);
+
+        if (shdr.sh_type != SHT_SYMTAB && shdr.sh_type != SHT_DYNSYM)
+            continue;
+
+        Elf_Data *data = elf_getdata(scn, NULL);
+        int count = shdr.sh_size / shdr.sh_entsize;
+
+        for (int i = 0; i < count; i++) {
+            GElf_Sym sym;
+            gelf_getsym(data, i, &sym);
+
+            if (GELF_ST_TYPE(sym.st_info) != STT_FUNC)
+                continue;
+
+            if (sym.st_value == 0)
+                continue;
+
+            const char *name = elf_strptr(e, shdr.sh_link, sym.st_name);
+            if (!name || !name[0])
+                continue;
+
+            uint64_t runtime_addr = map_start + sym.st_value - map_offset;
+            add_symbol(st, name, runtime_addr, NULL);
+
+            // printf("FUNC %-30s ELF=0x%lx RUNTIME=0x%lx\n", name, (unsigned long)sym.st_value, runtime_addr);
+        }
+    }
+
+    elf_end(e);
+    close(fd);
+    return 0;
+}
+
+// static uint64_t find_dt_debug_address(pid_t pid, char *exe_path) {
+//     /* Use libelf to parse the ELF file on disk and locate the dynamic segment
+//      * and the index of the DT_DEBUG entry. Then read the DT_DEBUG pointer
+//      * value from the target process memory at the corresponding dynamic entry
+//      * address using a single ptrace peek. This avoids iterating dynamic
+//      * entries in target memory with read_target_mem.
+//      */
+//     if (elf_version(EV_CURRENT) == EV_NONE) {
+//         WARNING("libelf initialization failed\n");
+//         return 0;
+//     }
+
+//     int fd = open(exe_path, O_RDONLY);
+//     if (fd < 0) {
+//         WARNING("open(%s) failed: %s\n", exe_path, strerror(errno));
+//         return 0;
+//     }
+
+//     Elf *e = elf_begin(fd, ELF_C_READ, NULL);
+//     if (!e) {
+//         close(fd);
+//         WARNING("elf_begin failed\n");
+//         return 0;
+//     }
+//     GElf_Ehdr eh;
+//     if (gelf_getehdr(e, &eh) == NULL) {
+//         elf_end(e);
+//         close(fd);
+//         WARNING("gelf_getehdr failed\n");
+//         return 0;
+//     }
+
+//     size_t phnum = 0;
+//     if (elf_getphdrnum(e, &phnum) != 0)
+//         phnum = eh.e_phnum;
+
+//     uint64_t dyn_vaddr = 0, dyn_memsz = 0, dyn_offset = 0;
+//     for (size_t i = 0; i < phnum; i++) {
+//         GElf_Phdr ph;
+//         if (gelf_getphdr(e, i, &ph) == NULL)
+//             break;
+//         if (ph.p_type == PT_DYNAMIC) {
+//             dyn_vaddr = ph.p_vaddr;
+//             dyn_memsz = ph.p_memsz;
+//             dyn_offset = ph.p_offset;
+//             break;
+//         }
+//     }
+
+//     if (!dyn_vaddr || !dyn_memsz) {
+//         elf_end(e);
+//         close(fd);
+//         WARNING("no PT_DYNAMIC found in %s\n", exe_path);
+//         return 0;
+//     }
+
+//     /* Read dynamic entries from file to find the DT_DEBUG index */
+//     uint64_t entry_count = dyn_memsz / sizeof(Elf64_Dyn);
+//     int debug_index = -1;
+//     for (uint64_t i = 0; i < entry_count; i++) {
+//         Elf64_Dyn d;
+//         off_t off = (off_t)(dyn_offset + i * sizeof(Elf64_Dyn));
+//         ssize_t r = pread(fd, &d, sizeof(d), off);
+//         if (r != sizeof(d))
+//             break;
+//         if ((int64_t)d.d_tag == DT_DEBUG) {
+//             debug_index = (int)i;
+//             break;
+//         }
+//         if ((int64_t)d.d_tag == DT_NULL)
+//             break;
+//     }
+
+//     elf_end(e);
+//     if (debug_index < 0) {
+//         close(fd);
+//         WARNING("DT_DEBUG not found in file for %s\n", exe_path);
+//         return 0;
+//     }
+
+//     /* find mapping that contains the PT_DYNAMIC file offset
+//      * We must match the maps entry whose file offset range covers dyn_offset.
+//      * The mapping line gives a start address and the file offset that is mapped
+//      * to that start; the memory address for dyn_offset is therefore:
+//      *    mapping_start + (dyn_offset - mapping_file_offset)
+//      */
+//     char maps_path[256];
+//     snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);
+//     FILE *fp = fopen(maps_path, "r");
+//     if (!fp) {
+//         close(fd);
+//         return 0;
+//     }
+//     char line[512];
+//     uint64_t dyn_addr_mem = 0;
+//     while (fgets(line, sizeof(line), fp)) {
+//         if (!strstr(line, exe_path))
+//             continue;
+//         uint64_t start = 0, end = 0, map_off = 0;
+//         char perms[16], dev[16], inode_str[32], path[256];
+//         int n = sscanf(line, "%lx-%lx %15s %lx %15s %31s %255s", &start, &end, perms, &map_off, dev, inode_str, path);
+//         if (n < 4)
+//             continue;
+//         uint64_t mapsize = end - start;
+//         if (dyn_offset >= map_off && dyn_offset < map_off + mapsize) {
+//             dyn_addr_mem = start + (dyn_offset - map_off);
+//             break;
+//         }
+//     }
+//     fclose(fp);
+//     if (!dyn_addr_mem) {
+//         close(fd);
+//         WARNING("failed to locate dynamic section in process maps for %s\n", exe_path);
+//         return 0;
+//     }
+//     uint64_t entry_addr = dyn_addr_mem + (uint64_t)debug_index * sizeof(Elf64_Dyn);
+//     DEBUG("DT_DEBUG entry address = 0x%lx\n", entry_addr);
+
+//     /* read the DT_DEBUG entry from target memory using ptrace peek (single word reads)
+//      * d_tag (8 bytes) + d_un (8 bytes). We'll read two words and reconstruct the entry.
+//      */
+//     Elf64_Dyn dval;
+//     long v0 = ptrace_peek(pid, entry_addr);
+//     if (errno) {
+//         close(fd);
+//         return 0;
+//     }
+//     long v1 = ptrace_peek(pid, entry_addr + sizeof(long));
+//     if (errno) {
+//         close(fd);
+//         return 0;
+//     }
+//     memcpy(&dval, &v0, sizeof(long));
+//     memcpy(((uint8_t *)&dval) + sizeof(long), &v1, sizeof(long));
+
+//     if ((int64_t)dval.d_tag == DT_DEBUG) {
+//         uint64_t ret = (uint64_t)dval.d_un.d_ptr;
+//         DEBUG("found DT_DEBUG pointer = 0x%lx\n", ret);
+//         close(fd);
+//         return ret;
+//     }
+
+//     close(fd);
+//     WARNING("tag: %ld, d_un: %ld\n", dval.d_tag, dval.d_un.d_ptr);
+//     WARNING("DT_DEBUG entry mismatched after ptrace read\n");
+//     return 0;
+// }
 
 int load_user_symbols(struct symbol_table *st, int pid) {
+    /* First pass: load existing r-xp mappings (executable and any already-loaded libs) */
     char maps_path[256];
     snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);
     FILE *fp = fopen(maps_path, "r");
@@ -18,32 +233,54 @@ int load_user_symbols(struct symbol_table *st, int pid) {
         return 0;
     }
 
+    /* find exe path */
+    char exe_link[64], exe_path[PATH_MAX];
+    snprintf(exe_link, sizeof(exe_link), "/proc/%d/exe", pid);
+    ssize_t len = readlink(exe_link, exe_path, sizeof(exe_path) - 1);
+    if (len <= 0) {
+        DEBUG("no exe path\n");
+        return -1;
+    }
+    exe_path[len] = '\0';
+
+    /*
+     * read the mapped elf file symbols and add them to the symbol table
+     */
     char line[512];
     uint64_t start, end, offset, inode;
-    char fname[128], mod[16], dev[16];
+    char fname[PATH_MAX], mod[16], dev[16];
     while (fgets(line, sizeof(line), fp)) {
-        /* load execute section symbols */
-        // printf("line: %s", line);
         if (strstr(line, "r-xp")) {
-            // start    end      perm offset   dev   inode  pathname
-            // 00400000-0040b000 r-xp 00000000 fd:01 123456 /usr/bin/ls
+            /*
+             * The maps file has the following format:
+             * start    end      perm offset   dev   inode  fname
+             * 00400000-0040b000 r-xp 00000000 fd:01 123456 /usr/bin/ls
+             */
             int n = sscanf(line, "%lx-%lx %s %lx %s %lu %s", &start, &end, mod, &offset, dev, &inode, fname);
-            printf("%s\n", fname);
-            if (n != 7) {
+            if (n < 7)
                 continue;
-            }
-            // only load elf file, ignore [stack] [vsdo] [vsyscall]...
-            if (fname[0] != '/') {
+            /* skip not elf file, like [stack] [vsdo] */
+            if (fname[0] != '/')
                 continue;
-            }
-            load_elf_file(st, fname, start, offset);
+            load_elf_symbol(st, fname, start, offset);
         }
     }
-
     fclose(fp);
-
     DEBUG("load user symbol %d items\n", st->size);
     return 0;
+
+    /*
+     * when the dynamic linker loads a shared library, it will add a new entry to the link_map
+     * and call _dl_debug_state to notify the debugger.
+     *
+     * so, we should set breakpoint at _dl_debug_state,
+     * and wait for the dynamic linker to hit the breakpoint
+     *
+     * https://zhuanlan.zhihu.com/p/555962031
+     * https://zhuanlan.zhihu.com/p/836833506
+     */
+    // uint64_t dll_breakpoint_addr = get_symbol_addr(st, "_dl_debug_state");
+    // DEBUG("dll_breakpoint_addr = 0x%lx\n", dll_breakpoint_addr);
 }
 
 // https://blog.csdn.net/qq_42931917/article/details/129943916
@@ -121,4 +358,14 @@ void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const 
     st->symbols[st->size].name = strdup(name);
     st->symbols[st->size].module = module ? strdup(module) : NULL;
     st->size++;
+}
+
+uint64_t get_symbol_addr(struct symbol_table *st, const char *name) {
+    for (int i = 0; i < st->size; i++) {
+        if (strcmp(st->symbols[i].name, name) == 0) {
+            return st->symbols[i].addr;
+        }
+    }
+    ERR("fail to find symbol %s\n", name);
+    return 0;
 }

@@ -1,0 +1,196 @@
+#include "log.h"
+#define _GNU_SOURCE
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/perf_event.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/epoll.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#define MAXN 512
+
+int cpu_nums;
+
+extern void int_exit(int _);
+
+/* ================= perf helpers ================= */
+
+static long perf_event_open(struct perf_event_attr *attr, pid_t _pid, int cpu, int group_fd, unsigned long flags) {
+    return syscall(__NR_perf_event_open, attr, _pid, cpu, group_fd, flags);
+}
+
+/* 用户自己实现 */
+int process_event(char *base, unsigned long long size, unsigned long long offset) {
+    /* parse PERF_RECORD_SAMPLE here */
+    return 0;
+}
+
+/* ================= perf fd context ================= */
+
+struct perf_fd_ctx {
+    int fd;
+    void *addr;
+    uint64_t tail;
+};
+
+/* ================= sample thread ================= */
+
+struct sample_thread_arg {
+    int epfd;
+};
+
+void *sample_handler(void *arg) {
+    struct sample_thread_arg *st = arg;
+    int max_events = cpu_nums;
+    struct epoll_event events[max_events];
+
+    for (;;) {
+        int n = epoll_wait(st->epfd, events, max_events, -1);
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            perror("epoll_wait");
+            break;
+        }
+
+        for (int i = 0; i < n; i++) {
+            struct perf_fd_ctx *ctx = events[i].data.ptr;
+            struct perf_event_mmap_page *mp;
+            uint64_t head;
+            int event_size;
+
+            mp = (struct perf_event_mmap_page *)ctx->addr;
+
+            // stop kernel to add new data to ring buffer
+            ioctl(ctx->fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 1);
+
+            head = ctx->tail;
+            if (head > mp->data_head) {
+                head = mp->data_head;
+            }
+            head = mp->data_head - ((mp->data_head - head) % mp->data_size);
+            __sync_synchronize();
+
+            while (ctx->tail < head) {
+                event_size = process_event((char *)ctx->addr + mp->data_offset, mp->data_size, ctx->tail);
+
+                if (event_size < 0) {
+                    /* resync */
+                    ctx->tail = head;
+                    break;
+                }
+                ctx->tail += event_size;
+            }
+
+            __sync_synchronize();
+            mp->data_tail = ctx->tail;
+
+            ioctl(ctx->fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
+        }
+    }
+    return NULL;
+}
+
+/* ================= main perf logic ================= */
+
+int profile_process(int cgroup_fd, int sample_freq, int need_kernel_callchain) {
+    int i;
+    int cpu_num;
+    int epfd;
+    long psize;
+    pthread_t sample_thread;
+    struct sample_thread_arg st_arg;
+    struct perf_fd_ctx *ctxs;
+    int ctx_cnt = 0;
+
+    /* -------- perf attr -------- */
+    struct perf_event_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.type = PERF_TYPE_SOFTWARE;
+    attr.size = sizeof(attr);
+    attr.config = PERF_COUNT_SW_CPU_CLOCK;
+    attr.sample_freq = sample_freq;
+    attr.freq = 1;
+    /* The ring buffer accumulates 16 samples before waking up epoll, reducing overhead. */
+    attr.wakeup_events = 16;
+    attr.sample_type = PERF_SAMPLE_TID | PERF_SAMPLE_CALLCHAIN;
+    attr.sample_max_stack = 32;
+    /*
+     * sample record format
+     *
+     * pid, tid
+     * nr
+     * ip[0 ... nr-1] (max 32)
+     */
+
+    if (!need_kernel_callchain)
+        attr.exclude_callchain_kernel = 1;
+
+    cpu_num = sysconf(_SC_NPROCESSORS_ONLN);
+    ctxs = calloc(cpu_num, sizeof(*ctxs));
+    psize = sysconf(_SC_PAGE_SIZE);
+
+    /* -------- epoll -------- */
+    epfd = epoll_create1(EPOLL_CLOEXEC);
+    if (epfd < 0) {
+        perror("epoll_create1");
+        return -1;
+    }
+
+    /* -------- attach perf events -------- */
+    for (i = 0; i < cpu_num; i++) {
+        int fd;
+        void *addr;
+        struct epoll_event ev;
+
+        fd = perf_event_open(&attr, cgroup_fd, i, -1, PERF_FLAG_FD_CLOEXEC | PERF_FLAG_PID_CGROUP);
+        if (fd < 0) {
+            WARNING("fail to open perf event on cpu %d\n", i);
+            continue;
+        }
+
+        addr = mmap(NULL, (1 + MAXN) * psize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (addr == MAP_FAILED) {
+            perror("mmap");
+            close(fd);
+            continue;
+        }
+
+        ctxs[ctx_cnt].fd = fd;
+        ctxs[ctx_cnt].addr = addr;
+        ctxs[ctx_cnt].tail = 0;
+
+        ev.events = EPOLLIN;
+        ev.data.ptr = &ctxs[ctx_cnt];
+
+        if (epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev) < 0) {
+            perror("epoll_ctl");
+            munmap(addr, (1 + MAXN) * psize);
+            close(fd);
+            continue;
+        }
+
+        ctx_cnt++;
+    }
+
+    if (ctx_cnt == 0) {
+        fprintf(stderr, "no perf events attached\n");
+        return -1;
+    }
+
+    /* -------- start sample thread -------- */
+    st_arg.epfd = epfd;
+    pthread_create(&sample_thread, NULL, sample_handler, &st_arg);
+    pthread_detach(sample_thread);
+
+    return 0;
+}
