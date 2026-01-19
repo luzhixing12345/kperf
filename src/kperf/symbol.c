@@ -355,6 +355,7 @@ void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const 
             perror("fail to realloc");
             exit(1);
         }
+        DEBUG("realloc symbol table to %d\n", st->capacity);
     }
     st->symbols[st->size].addr = addr;
     st->symbols[st->size].name = strdup(name);

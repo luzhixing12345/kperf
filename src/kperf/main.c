@@ -27,6 +27,7 @@
 int timeout = -1;
 struct symbol_table *kst = NULL;
 struct symbol_table *ust = NULL;
+extern struct perf_sample_table *pst;
 pid_t pid;
 int pids[MAX_PIDS];
 int pid_num = 0;
@@ -45,7 +46,7 @@ int main(int argc, char *argv[]) {
     argparse_option options[] = {
         ARG_INT(&pid, "-p", "--pid", "process id to monitor", " <pid>", "pid"),
         ARG_BOOLEAN(&need_kernel_callchain, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
-        ARG_STR(&exe_cmd, NULL, "--", "command to run", NULL, "command"),
+        ARG_STR(&exe_cmd, NULL, "--", "command to run", " <cmd>", "command"),
         ARG_INT(&sample_freq, "-F", "--freq", "sampling frequency [default 777 Hz]", " <Hz>", "freq"),
         ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
         ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
@@ -58,6 +59,9 @@ int main(int argc, char *argv[]) {
     argparse_describe(&parser,
                       "kperf",
                       "linux kernel and user space program profiler",
+                      "Examples:\n"
+                      "  sudo kperf -- ./a\n"
+                      "  sudo kperf -p `pidof a`\n\n"
                       "Full documentation: https://github.com/luzhixing12345/kperf");
     argparse_parse(&parser, argc, argv);
 
@@ -79,8 +83,10 @@ int main(int argc, char *argv[]) {
 
     kst = malloc(sizeof(struct symbol_table));
     ust = malloc(sizeof(struct symbol_table));
+    pst = malloc(sizeof(struct perf_sample_table));
     init_symbol_table(kst);
     init_symbol_table(ust);
+    init_perf_sample_table(pst);
     // signal(SIGINT, int_exit);
     // signal(SIGTERM, int_exit);
 
@@ -95,10 +101,6 @@ int main(int argc, char *argv[]) {
             goto cleanup;
         }
     }
-
-    start_http_server(http_port);
-    while (1) {}
-    return 0;
 
     // run a program: ./kperf -- <command>
     int status;
@@ -130,7 +132,7 @@ int main(int argc, char *argv[]) {
             goto cleanup;
         }
         profile_process(cgroup_fd, sample_freq, need_kernel_callchain);
-        start_http_server(http_port);
+        // start_http_server(http_port);
 
         ptrace(PTRACE_CONT, pid, 0, 0);
         while (1) {
@@ -155,6 +157,7 @@ int main(int argc, char *argv[]) {
         load_user_symbols(ust, pid);
     }
 
+    INFO("perf sample size = %d\n", pst->size);
     INFO("cleanup\n");
     goto cleanup;
 
@@ -166,6 +169,7 @@ cleanup:
     free_argparse(&parser);
     free_symbol_table(kst);
     free_symbol_table(ust);
+    free_perf_sample_table(pst);
 
     return 0;
 }

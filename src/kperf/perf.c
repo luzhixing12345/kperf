@@ -1,3 +1,4 @@
+#include "perf.h"
 #include "log.h"
 #define _GNU_SOURCE
 #include <errno.h>
@@ -19,6 +20,7 @@
 #define MAXN 512
 
 int cpu_nums;
+struct perf_sample_table *pst;
 
 extern void int_exit(int _);
 
@@ -28,9 +30,67 @@ static long perf_event_open(struct perf_event_attr *attr, pid_t _pid, int cpu, i
     return syscall(__NR_perf_event_open, attr, _pid, cpu, group_fd, flags);
 }
 
-/* 用户自己实现 */
-int process_event(char *base, unsigned long long size, unsigned long long offset) {
-    /* parse PERF_RECORD_SAMPLE here */
+int init_perf_sample_table(struct perf_sample_table *table) {
+    table->size = 0;
+    table->capacity = SAMPLE_CAPACITY;
+    table->samples = malloc(sizeof(struct perf_sample) * table->capacity);
+    if (!table->samples) {
+        perror("malloc");
+        ERR("perf sample malloc failed");
+        exit(1);
+    }
+    return 0;
+}
+
+void free_perf_sample_table(struct perf_sample_table *table) {
+    for (int i = 0; i < table->size; i++) {
+        free(table->samples[i].ips);
+    }
+    free(table->samples);
+}
+
+void add_perf_sample(struct perf_sample_table *st, uint32_t pid, uint32_t tid, uint64_t nr, uint64_t *ips) {
+    if (st->size == st->capacity) {
+        st->capacity *= SAMPLE_GROWTH_FACTOR;
+        st->samples = realloc(st->samples, sizeof(struct perf_sample) * st->capacity);
+        if (!st->samples) {
+            perror("realloc");
+            ERR("perf sample realloc failed");
+            exit(1);
+        }
+        DEBUG("realloc perf sample table to %d", st->capacity);
+    }
+    struct perf_sample *ps = &st->samples[st->size];
+    ps->pid = pid;
+    ps->pid = pid;
+    ps->tid = tid;
+    ps->nr = nr;
+    ps->ips = malloc(sizeof(uint64_t) * nr);
+    memcpy(ps->ips, ips, sizeof(uint64_t) * nr);
+    st->size++;
+}
+
+int process_event(struct perf_event_header *hdr, struct perf_sample_table *st) {
+    /*
+     * sample record format
+     *
+     * struct perf_event_header header;
+     *                      // PERF_SAMPLE_TID
+     * u32 pid;             // process id
+     * u32 tid;             // thread id
+     *                      // PERF_SAMPLE_CALLCHAIN
+     * u64 nr;              // callchain depth
+     * u64 ips[nr];         // callchain addrs
+     */
+    if (hdr->type == PERF_RECORD_SAMPLE) {
+        uint8_t *p = (uint8_t *)hdr + sizeof(*hdr);
+        uint32_t pid = *((uint32_t *)p);
+        uint32_t tid = *((uint32_t *)(p + sizeof(uint32_t)));
+        uint64_t nr = *((uint64_t *)(p + sizeof(uint32_t) * 2));
+        uint64_t *ips = (uint64_t *)(p + sizeof(uint32_t) * 2 + sizeof(uint64_t));
+        add_perf_sample(st, pid, tid, nr, ips);
+        return hdr->size;
+    }
     return 0;
 }
 
@@ -65,38 +125,36 @@ void *sample_handler(void *arg) {
         for (int i = 0; i < n; i++) {
             struct perf_fd_ctx *ctx = events[i].data.ptr;
             struct perf_event_mmap_page *mp;
-            uint64_t head;
+
             int event_size;
 
             mp = (struct perf_event_mmap_page *)ctx->addr;
 
             // stop kernel to add new data to ring buffer
-            ioctl(ctx->fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 1);
+            // ioctl(ctx->fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 1);
 
-            head = ctx->tail;
-            if (head > mp->data_head) {
-                head = mp->data_head;
-            }
-            head = mp->data_head - ((mp->data_head - head) % mp->data_size);
-            __sync_synchronize();
+            uint8_t *data = (uint8_t *)mp + mp->data_offset;
+            uint64_t head = __atomic_load_n(&mp->data_head, __ATOMIC_ACQUIRE);
+            uint64_t tail = ctx->tail;
+            uint64_t size = mp->data_size;
 
-            while (ctx->tail < head) {
-                event_size = process_event((char *)ctx->addr + mp->data_offset, mp->data_size, ctx->tail);
+            while (tail < head) {
+                struct perf_event_header *hdr = (struct perf_event_header *)(data + (tail & (size - 1)));
+                event_size = process_event(hdr, pst);
 
-                if (event_size < 0) {
+                if (event_size <= 0) {
                     /* resync */
-                    ctx->tail = head;
+                    tail = head;
                     break;
                 }
-                ctx->tail += event_size;
+                tail += event_size;
             }
 
-            __sync_synchronize();
-            mp->data_tail = ctx->tail;
-
-            ioctl(ctx->fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
+            ctx->tail = tail;
+            // ioctl(ctx->fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
         }
     }
+    free(st);
     return NULL;
 }
 
@@ -108,7 +166,7 @@ int profile_process(int cgroup_fd, int sample_freq, int need_kernel_callchain) {
     int epfd;
     long psize;
     pthread_t sample_thread;
-    struct sample_thread_arg st_arg;
+    // struct sample_thread_arg st_arg;
     struct perf_fd_ctx *ctxs;
     int ctx_cnt = 0;
 
@@ -129,7 +187,7 @@ int profile_process(int cgroup_fd, int sample_freq, int need_kernel_callchain) {
      *
      * pid, tid
      * nr
-     * ip[0 ... nr-1] (max 32)
+     * ip[0 ... nr-1]
      */
 
     if (!need_kernel_callchain)
@@ -138,6 +196,7 @@ int profile_process(int cgroup_fd, int sample_freq, int need_kernel_callchain) {
     cpu_num = sysconf(_SC_NPROCESSORS_ONLN);
     ctxs = calloc(cpu_num, sizeof(*ctxs));
     psize = sysconf(_SC_PAGE_SIZE);
+    DEBUG("cpu num: %d, page size: %ld\n", cpu_num, psize);
 
     /* -------- epoll -------- */
     epfd = epoll_create1(EPOLL_CLOEXEC);
@@ -152,6 +211,8 @@ int profile_process(int cgroup_fd, int sample_freq, int need_kernel_callchain) {
         void *addr;
         struct epoll_event ev;
 
+        // create perf event for each cpu instead of use cpu = -1
+        // to avoid multi-cpu write ring buffer
         fd = perf_event_open(&attr, cgroup_fd, i, -1, PERF_FLAG_FD_CLOEXEC | PERF_FLAG_PID_CGROUP);
         if (fd < 0) {
             WARNING("fail to open perf event on cpu %d\n", i);
@@ -188,8 +249,16 @@ int profile_process(int cgroup_fd, int sample_freq, int need_kernel_callchain) {
     }
 
     /* -------- start sample thread -------- */
-    st_arg.epfd = epfd;
-    pthread_create(&sample_thread, NULL, sample_handler, &st_arg);
+    /* set global cpu count for sample thread max events */
+    cpu_nums = ctx_cnt;
+
+    struct sample_thread_arg *st_argp = malloc(sizeof(*st_argp));
+    if (!st_argp) {
+        perror("malloc");
+        return -1;
+    }
+    st_argp->epfd = epfd;
+    pthread_create(&sample_thread, NULL, sample_handler, st_argp);
     pthread_detach(sample_thread);
 
     return 0;
