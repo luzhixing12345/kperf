@@ -3,12 +3,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "build_html.h"
-#include "config.h"
-#include "log.h"
 #include <sys/stat.h>
 #include <errno.h>
 #include <libgen.h>
+#include "build_html.h"
+#include "config.h"
+#include "log.h"
+#include "symbol.h"
+#include "utils.h"
 
 /* lookup symbol by addr: find symbol with largest addr <= target using binary search */
 const char *find_name(struct symbol_table *st, uint64_t addr) {
@@ -41,11 +43,11 @@ const char *find_name(struct symbol_table *st, uint64_t addr) {
 struct node *node_add(struct node *cur, const char *name) {
     if (!cur)
         return NULL;
-    cur->c++;
+    // cur->count++;
     struct child *it = cur->children;
     while (it) {
         if (strcmp(it->name, name) == 0) {
-            it->n->c++;
+            // it->n->count++;
             return it->n;
         }
         it = it->next;
@@ -53,7 +55,7 @@ struct node *node_add(struct node *cur, const char *name) {
     struct child *nc = malloc(sizeof(*nc));
     nc->name = strdup(name);
     nc->n = calloc(1, sizeof(*nc->n));
-    nc->n->c = 1;
+    nc->n->count = 0;
     nc->next = cur->children;
     cur->children = nc;
     return nc->n;
@@ -73,14 +75,14 @@ void node_free(struct node *n) {
 int cmp_child(const void *a, const void *b) {
     struct child *ca = *(struct child **)a;
     struct child *cb = *(struct child **)b;
-    if (ca->n->c > cb->n->c)
+    if (ca->n->count > cb->n->count)
         return -1;
-    if (ca->n->c < cb->n->c)
+    if (ca->n->count < cb->n->count)
         return 1;
     return strcmp(ca->name, cb->name);
 }
 
-int print_node(FILE *fp, struct node *n, int k) {
+int print_node_html(FILE *fp, struct node *n, int k) {
     if (!n)
         return k;
     /* count children */
@@ -98,14 +100,19 @@ int print_node(FILE *fp, struct node *n, int k) {
 
     for (int i = 0; i < cnt; i++) {
         struct child *c = arr[i];
-        int count = c->n->c;
-        double pct = 100.0 * count / (n->c ? n->c : 1);
+        int count = c->n->count;
+        double pct = 100.0 * count / (n->count ? n->count : 1);
         fprintf(fp, "<li>\n");
         fprintf(fp, "<input type=\"checkbox\" id=\"c%d\" />\n", k);
-        fprintf(
-            fp, "<label class=\"tree_label\" for=\"c%d\">%s(%.3f%% %d/%ld)</label>\n", k, c->name, pct, count, n->c);
+        fprintf(fp,
+                "<label class=\"tree_label\" for=\"c%d\">%s(%.3f%% %d/%ld)</label>\n",
+                k,
+                c->name,
+                pct,
+                count,
+                n->count);
         fprintf(fp, "<ul>\n");
-        k = print_node(fp, c->n, k + 1);
+        k = print_node_html(fp, c->n, k + 1);
         fprintf(fp, "</ul>\n");
         fprintf(fp, "</li>\n");
     }
@@ -113,41 +120,11 @@ int print_node(FILE *fp, struct node *n, int k) {
     return k;
 }
 
-int copy_file(const char *src, const char *dst) {
-    FILE *sf = fopen(src, "r");
-    if (!sf) {
-        ERR("failed to open %s: %s\n", src, strerror(errno));
-        return -1;
-    }
-    FILE *df = fopen(dst, "w");
-    if (!df) {
-        ERR("failed to open %s: %s\n", dst, strerror(errno));
-        fclose(sf);
-        return -1;
-    }
-    char buf[4096];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf), sf)) > 0) {
-        if (fwrite(buf, 1, n, df) != n) {
-            ERR("failed to write to %s: %s\n", dst, strerror(errno));
-            fclose(sf);
-            fclose(df);
-            return -1;
-        }
-    }
-    fclose(sf);
-    fclose(df);
-    DEBUG("copied %s to %s\n", src, dst);
-    return 0;
-}
+int strange = 0;
 
-void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
-    if (!pst || pst->size == 0) {
-        ERR("no samples to build html\n");
-        return;
-    }
-
+struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
     struct node *root = calloc(1, sizeof(*root));
+    root->count = 0;
 
     /* build tree from pst samples */
     for (int i = 0; i < pst->size; i++) {
@@ -155,10 +132,15 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
         if (!s || s->nr == 0 || !s->ips)
             continue;
         struct node *r = root;
-        /* iterate callchain from last to first (like a.cpp) */
+        r->count++;
+        /* iterate callchain from last to first */
         for (int j = (int)s->nr - 1; j >= 0; j--) {
             uint64_t addr = s->ips[j];
             const char *name = NULL;
+            if (addr >= 0xfffffffffffffe00) {
+                // https://wolf.nereid.pl/posts/perf-stack-traces/
+                continue;
+            }
             if (ust)
                 name = find_name(ust, addr);
             if (!name && kst)
@@ -168,13 +150,27 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
                 WARNING("no name found 0x%lx\n", addr);
                 snprintf(hexbuf, sizeof(hexbuf), "0x%lx", (unsigned long)addr);
                 name = hexbuf;
+                strange = 1;
             }
             r = node_add(r, name);
+            r->count++;
         }
     }
+    return root;
+}
 
-    /* printing: collect children into array and sort by count */
-    INFO("building html report\n");
+void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
+    if (!pst || pst->size == 0) {
+        ERR("no samples to build html\n");
+        return;
+    }
+
+    /* build tree */
+    struct node *root = build_tree(pst, ust, kst);
+    if (strange) {
+        save_symbol_table(ust, "ust.txt");
+        INFO("saved user space symbols to ust.txt\n");
+    }
 
     /* render tree into memory buffer */
     char *tree_buf = NULL;
@@ -184,8 +180,11 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
         perror("open_memstream");
         return;
     }
+
+    /* printing: collect children into array and sort by count */
+    INFO("building html report\n");
     fprintf(ms, "<ul class=\"tree\">\n");
-    print_node(ms, root, 0);
+    print_node_html(ms, root, 0);
     fprintf(ms, "</ul>\n");
     fclose(ms);
 

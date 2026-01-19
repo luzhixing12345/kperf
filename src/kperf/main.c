@@ -22,6 +22,7 @@
 #include "cgroup.h"
 #include "perf.h"
 #include "version.h"
+#include "tui.h"
 
 #define MAX_PIDS 1024
 
@@ -33,6 +34,7 @@ extern struct perf_sample_table *pst;
 pid_t pid;
 int pids[MAX_PIDS];
 int pid_num = 0;
+int use_tui = 0;
 
 void int_exit(int _) {
 }
@@ -53,8 +55,14 @@ int main(int argc, char *argv[]) {
         ARG_INT(&sample_freq, "-F", "--freq", "sampling frequency [default 777 Hz]", " <Hz>", "freq"),
         ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
         ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
-        ARG_BOOLEAN(&only_launch_http_server, "-l", "--launch", "only launch http server without doing anything else", NULL, "launch"),
+        ARG_BOOLEAN(&only_launch_http_server,
+                    "-s",
+                    "--server",
+                    "only launch http server without doing anything else",
+                    NULL,
+                    "launch"),
         ARG_INT(&http_port, NULL, "--port", "http server port", " <port>", "port"),
+        ARG_BOOLEAN(&use_tui, "-T", "--tui", "use tui instead of html", NULL, "tui"),
         ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
         ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
         ARG_END()};
@@ -168,8 +176,12 @@ int main(int argc, char *argv[]) {
     }
 
     INFO("perf sample size = %d\n", pst->size);
-    build_html(pst, ust, kst);
-    start_http_server(http_port);
+    if (!use_tui) {
+        build_html(pst, ust, kst);
+        start_http_server(http_port);
+    } else {
+        build_tui(pst, ust, kst);
+    }
     INFO("done\n");
 
     // int_exit(0);

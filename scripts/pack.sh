@@ -1,8 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-set -e
-
-cp build/bpf/* kperf/ebpf/
-cp build/lib/* kperf/ebpf
-
-cp libbpf/src/libbpf.so kperf/ebpf
+for i in $(seq 1 10); do
+    echo "===== run $i ====="
+    sudo ./build/kperf --tui -- ./test/cpu/test1
+done

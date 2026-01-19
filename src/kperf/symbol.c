@@ -224,7 +224,13 @@ static int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map
 // }
 
 static int symbol_cmp(const void *a, const void *b) {
-    return ((struct symbol *)a)->addr - ((struct symbol *)b)->addr;
+    const struct symbol *sa = a, *sb = b;
+    if (sa->addr < sb->addr)
+        return -1;
+    else if (sa->addr > sb->addr)
+        return 1;
+    else
+        return 0;
 }
 
 int load_user_symbols(struct symbol_table *st, int pid) {
@@ -278,6 +284,7 @@ int load_user_symbols(struct symbol_table *st, int pid) {
         return -1;
     }
     qsort(st->symbols, st->size, sizeof(struct symbol), symbol_cmp);
+    // save_symbol_table(st, "ust.txt");
     return 0;
 
     /*
@@ -370,6 +377,18 @@ void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const 
     st->symbols[st->size].name = strdup(name);
     st->symbols[st->size].module = module ? strdup(module) : NULL;
     st->size++;
+}
+
+void save_symbol_table(struct symbol_table *st, const char *file) {
+    FILE *fp = fopen(file, "w");
+    if (fp == NULL) {
+        perror("fail to open file");
+        return;
+    }
+    for (int i = 0; i < st->size; i++) {
+        fprintf(fp, "%s\t0x%lx\t%s\n", st->symbols[i].name, st->symbols[i].addr, st->symbols[i].module);
+    }
+    fclose(fp);
 }
 
 uint64_t get_symbol_addr(struct symbol_table *st, const char *name) {

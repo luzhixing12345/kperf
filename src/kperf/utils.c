@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 #include "utils.h"
+#include "log.h"
 
 int is_root() {
     return geteuid() == 0;
@@ -109,4 +111,32 @@ void free_argv(char **argv) {
         free(argv[i]);
     }
     free(argv);
+}
+
+int copy_file(const char *src, const char *dst) {
+    FILE *sf = fopen(src, "r");
+    if (!sf) {
+        ERR("failed to open %s: %s\n", src, strerror(errno));
+        return -1;
+    }
+    FILE *df = fopen(dst, "w");
+    if (!df) {
+        ERR("failed to open %s: %s\n", dst, strerror(errno));
+        fclose(sf);
+        return -1;
+    }
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), sf)) > 0) {
+        if (fwrite(buf, 1, n, df) != n) {
+            ERR("failed to write to %s: %s\n", dst, strerror(errno));
+            fclose(sf);
+            fclose(df);
+            return -1;
+        }
+    }
+    fclose(sf);
+    fclose(df);
+    DEBUG("copied %s to %s\n", src, dst);
+    return 0;
 }
