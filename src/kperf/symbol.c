@@ -255,6 +255,8 @@ int load_user_symbols(struct symbol_table *st, int pid) {
              * The maps file has the following format:
              * start    end      perm offset   dev   inode  fname
              * 00400000-0040b000 r-xp 00000000 fd:01 123456 /usr/bin/ls
+             *
+             * https://blog.csdn.net/qq_42931917/article/details/129943916
              */
             int n = sscanf(line, "%lx-%lx %s %lx %s %lu %s", &start, &end, mod, &offset, dev, &inode, fname);
             if (n < 7)

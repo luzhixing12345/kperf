@@ -18,6 +18,8 @@
 #define PORT     8080
 #define BUF_SIZE 4096
 
+int is_server_running = 0;
+
 void send_404(int client_fd) {
     const char *msg =
         "HTTP/1.1 404 Not Found\r\n"
@@ -52,6 +54,8 @@ const char *get_content_type(const char *path) {
         return "image/png";
     if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0)
         return "image/jpeg";
+    if (strcmp(ext, ".svg") == 0)
+        return "image/svg+xml; charset=utf-8";
 
     return "text/plain; charset=utf-8";
 }
@@ -90,7 +94,6 @@ fallback:
     return -1;
 }
 
-
 void show_http_server_info(int port) {
     // Kperf v0.0.1
 
@@ -120,7 +123,7 @@ void show_http_server_info(int port) {
            port,
            KPERF_RESULTS_PATH,
            RESET);
-    printf("    %s%s%s press %sq / CTRL+C%s to quit\n", GREEN, ARROW_CHAR, RESET, BOLD, RESET);
+    printf("    %s%s%s press %sCTRL+C%s to quit\n", GREEN, ARROW_CHAR, RESET, BOLD, RESET);
     printf("\n");
 }
 
@@ -157,6 +160,7 @@ void *http_server_thread(void *arg) {
     }
 
     show_http_server_info(port);
+    is_server_running = 1;
 
     while (1) {
         client_fd = accept(server_fd, NULL, NULL);
@@ -169,7 +173,6 @@ void *http_server_thread(void *arg) {
         int n = read(client_fd, buf, sizeof(buf) - 1);
         if (n <= 0) {
             close(client_fd);
-            ERR("read error\n");
             continue;
         }
         buf[n] = '\0';
