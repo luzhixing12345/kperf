@@ -160,7 +160,7 @@ label.tree_label:before {
 
 :checked~label.tree_label:before {
     content: '–';
-    background: #dc3545;
+    background: #626161;
     line-height: 13px;
 }
 

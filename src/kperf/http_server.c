@@ -15,7 +15,7 @@
 #include "tty.h"
 #include "version.h"
 
-#define PORT     8080
+#define PORT     9001
 #define BUF_SIZE 4096
 
 int is_server_running = 0;
@@ -123,12 +123,14 @@ void show_http_server_info(int port) {
            port,
            KPERF_RESULTS_PATH,
            RESET);
-    printf("    %s%s%s press %sCTRL+C%s to quit\n", GREEN, ARROW_CHAR, RESET, BOLD, RESET);
+    printf("    %s%s%s press    %sCTRL+C%s to quit\n", GREEN, ARROW_CHAR, RESET, BOLD, RESET);
     printf("\n");
 }
 
-void *http_server_thread(void *arg) {
-    int port = *(int *)arg;
+int start_http_server(int port) {
+    if (port == 0) {
+        port = PORT;
+    }
     int server_fd, client_fd;
     struct sockaddr_in addr;
     char buf[BUF_SIZE];
@@ -229,6 +231,10 @@ void *http_server_thread(void *arg) {
                  "HTTP/1.1 200 OK\r\n"
                  "Content-Type: %s\r\n"
                  "Content-Length: %ld\r\n"
+                 "Cache-Control: no-cache, no-store, must-revalidate\r\n"
+                 "Pragma: no-cache\r\n"
+                 "Expires: 0\r\n"
+                 "Connection: close\r\n"
                  "\r\n",
                  get_content_type(file_path),
                  st.st_size);
@@ -241,21 +247,12 @@ void *http_server_thread(void *arg) {
             write(client_fd, buf, r);
         }
 
+        DEBUG("write file %s to client\n", file_path);
+
         close(fd);
         close(client_fd);
     }
 
     close(server_fd);
-    return 0;
-}
-
-int start_http_server(int port) {
-    pthread_t tid;
-
-    if (port <= 0)
-        port = PORT;
-
-    pthread_create(&tid, NULL, http_server_thread, &port);
-    pthread_detach(tid);
     return 0;
 }

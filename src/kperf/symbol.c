@@ -175,8 +175,8 @@ static int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map
 //             continue;
 //         uint64_t start = 0, end = 0, map_off = 0;
 //         char perms[16], dev[16], inode_str[32], path[256];
-//         int n = sscanf(line, "%lx-%lx %15s %lx %15s %31s %255s", &start, &end, perms, &map_off, dev, inode_str, path);
-//         if (n < 4)
+//         int n = sscanf(line, "%lx-%lx %15s %lx %15s %31s %255s", &start, &end, perms, &map_off, dev, inode_str,
+//         path); if (n < 4)
 //             continue;
 //         uint64_t mapsize = end - start;
 //         if (dyn_offset >= map_off && dyn_offset < map_off + mapsize) {
@@ -222,6 +222,10 @@ static int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map
 //     WARNING("DT_DEBUG entry mismatched after ptrace read\n");
 //     return 0;
 // }
+
+static int symbol_cmp(const void *a, const void *b) {
+    return ((struct symbol *)a)->addr - ((struct symbol *)b)->addr;
+}
 
 int load_user_symbols(struct symbol_table *st, int pid) {
     /* First pass: load existing r-xp mappings (executable and any already-loaded libs) */
@@ -269,6 +273,11 @@ int load_user_symbols(struct symbol_table *st, int pid) {
     }
     fclose(fp);
     DEBUG("load user symbol %d items\n", st->size);
+    if (st->size == 0) {
+        ERR("fail to load user symbols, something went wrong!\n");
+        return -1;
+    }
+    qsort(st->symbols, st->size, sizeof(struct symbol), symbol_cmp);
     return 0;
 
     /*

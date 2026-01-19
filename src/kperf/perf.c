@@ -1,5 +1,6 @@
 #include "perf.h"
 #include "log.h"
+#include "utils.h"
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
@@ -50,7 +51,7 @@ void free_perf_sample_table(struct perf_sample_table *table) {
 }
 
 void add_perf_sample(struct perf_sample_table *st, uint32_t pid, uint32_t tid, uint64_t nr, uint64_t *ips) {
-    if (st->size == st->capacity) {
+    if (unlikely(st->size == st->capacity)) {
         st->capacity *= SAMPLE_GROWTH_FACTOR;
         st->samples = realloc(st->samples, sizeof(struct perf_sample) * st->capacity);
         if (!st->samples) {

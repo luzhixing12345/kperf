@@ -14,12 +14,14 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "argparse.h"
+#include "build_html.h"
 #include "http_server.h"
 #include "log.h"
 #include "symbol.h"
 #include "utils.h"
 #include "cgroup.h"
 #include "perf.h"
+#include "version.h"
 
 #define MAX_PIDS 1024
 
@@ -42,6 +44,7 @@ int main(int argc, char *argv[]) {
     int sample_freq = 777;
     int need_kernel_callchain = 0;
     int http_port = 0;
+    int only_launch_http_server = 0;
     argparse parser;
     argparse_option options[] = {
         ARG_INT(&pid, "-p", "--pid", "process id to monitor", " <pid>", "pid"),
@@ -50,6 +53,7 @@ int main(int argc, char *argv[]) {
         ARG_INT(&sample_freq, "-F", "--freq", "sampling frequency [default 777 Hz]", " <Hz>", "freq"),
         ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
         ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
+        ARG_BOOLEAN(&only_launch_http_server, "-l", "--launch", "only launch http server without doing anything else", NULL, "launch"),
         ARG_INT(&http_port, NULL, "--port", "http server port", " <port>", "port"),
         ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
         ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
@@ -65,20 +69,26 @@ int main(int argc, char *argv[]) {
                       "Full documentation: https://github.com/luzhixing12345/kperf");
     argparse_parse(&parser, argc, argv);
 
-    if (arg_ismatch(&parser, "help")) {
+    if (arg_ismatch(&parser, "help") || (!exe_cmd && !pid && !only_launch_http_server)) {
         argparse_info(&parser);
         free_argparse(&parser);
         return 0;
     }
 
     if (arg_ismatch(&parser, "version")) {
-        printf("kperf version %s\n", VERSION);
+        printf("kperf version v%s\n", get_version_str());
         free_argparse(&parser);
         return 0;
     }
 
     if (enable_debug) {
         log_set_level(LOG_DEBUG);
+    }
+
+    if (only_launch_http_server) {
+        start_http_server(http_port);
+        free_argparse(&parser);
+        return 0;
     }
 
     kst = malloc(sizeof(struct symbol_table));
@@ -158,12 +168,11 @@ int main(int argc, char *argv[]) {
     }
 
     INFO("perf sample size = %d\n", pst->size);
-    INFO("cleanup\n");
-    goto cleanup;
+    build_html(pst, ust, kst);
+    start_http_server(http_port);
+    INFO("done\n");
 
-    return 0;
-
-    int_exit(0);
+    // int_exit(0);
 
 cleanup:
     free_argparse(&parser);
