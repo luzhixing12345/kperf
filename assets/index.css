@@ -137,7 +137,10 @@ body {
     border-radius: 4px;
     transition: all 0.2s ease;
     cursor: pointer;
-    user-select: none;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
 }
 
 /* Expand/Collapse icons */
@@ -196,40 +199,10 @@ label.tree_label:before {
 /* Highlight and marked states */
 .highlight {
     background-color: #fff3cd;
-    border: 1px solid #ffeeba;
 }
 
 .marked {
     background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-}
-
-/* Tooltips */
-.tooltip {
-    position: relative;
-}
-
-.tooltip .tooltiptext {
-    visibility: hidden;
-    width: 200px;
-    background-color: #333;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px;
-    position: absolute;
-    z-index: 1;
-    bottom: 125%;
-    left: 50%;
-    margin-left: -100px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-size: 12px;
-}
-
-.tooltip:hover .tooltiptext {
-    visibility: visible;
-    opacity: 1;
 }
 
 /* Controls bar */

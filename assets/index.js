@@ -461,21 +461,6 @@ function addPerformanceColors() {
     });
 }
 
-// 添加工具提示
-function addTooltips() {
-    labels.forEach(label => {
-        const text = label.textContent;
-        const percentage = text.match(/(\d+\.\d+)%/)?.[1] || '0';
-        const calls = text.match(/(\d+)\/(\d+)/)?.[0] || '';
-
-        label.classList.add('tooltip');
-        const tooltip = document.createElement('span');
-        tooltip.className = 'tooltiptext';
-        tooltip.textContent = `执行时间占比: ${percentage}% | 调用次数: ${calls}`;
-        label.appendChild(tooltip);
-    });
-}
-
 // 展开并高亮元素
 function expandAndHighlight(label) {
     // 向上遍历并展开所有父节点
@@ -544,7 +529,6 @@ document.addEventListener('DOMContentLoaded', () => {
     createTagsPanel();
     createHelpModal();
     addPerformanceColors();
-    addTooltips();
     // 确保初始状态为折叠
     ensureCollapsed();
 

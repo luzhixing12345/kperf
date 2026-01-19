@@ -191,6 +191,7 @@ int start_http_server(int port) {
 
         if (strcmp(method, "GET") != 0) {
             send_400(client_fd);
+            WARNING("receive %s\n", buf);
             close(client_fd);
             continue;
         }
