@@ -53,24 +53,14 @@ sudo kperf -p <pid> -t 60
 
 by the way, you can stop monitoring at anytime with ctrl+c (interrupt)
 
-## multiple pids
-
-if your program would create multiple processes(pids) or you are using mpi, try to use `--cgroup`
-
-suppose your program name is abc
-
-```bash
-sudo kperf --cgroup $(pgrep abc)
-```
-
 ## build from scratch
 
 ```bash
-git submodule update --init --recursive
+sudo apt install libbpf-dev libelf-dev clang libz-dev
 ```
 
 ```bash
-make -j
+make
 ```
 
 ## reference

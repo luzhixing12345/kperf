@@ -327,6 +327,8 @@ install: all
 test:
 	$(MAKE) -C test
 
+testclean:
+	$(MAKE) -C test clean
 
 clean:
 	$(E) "  CLEAN\n"
