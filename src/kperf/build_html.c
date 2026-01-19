@@ -105,7 +105,7 @@ int print_node_html(FILE *fp, struct node *n, int k) {
         fprintf(fp, "<li>\n");
         fprintf(fp, "<input type=\"checkbox\" id=\"c%d\" />\n", k);
         fprintf(fp,
-                "<label class=\"tree_label\" for=\"c%d\">%s(%.3f%% %d/%ld)</label>\n",
+                "<label class=\"tree_label\" for=\"c%d\">%s(%.1f%% %d/%ld)</label>\n",
                 k,
                 c->name,
                 pct,
@@ -119,8 +119,6 @@ int print_node_html(FILE *fp, struct node *n, int k) {
     free(arr);
     return k;
 }
-
-int strange = 0;
 
 struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
     struct node *root = calloc(1, sizeof(*root));
@@ -150,7 +148,6 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
                 WARNING("no name found 0x%lx\n", addr);
                 snprintf(hexbuf, sizeof(hexbuf), "0x%lx", (unsigned long)addr);
                 name = hexbuf;
-                strange = 1;
             }
             r = node_add(r, name);
             r->count++;
@@ -167,10 +164,6 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
 
     /* build tree */
     struct node *root = build_tree(pst, ust, kst);
-    if (strange) {
-        save_symbol_table(ust, "ust.txt");
-        INFO("saved user space symbols to ust.txt\n");
-    }
 
     /* render tree into memory buffer */
     char *tree_buf = NULL;

@@ -29,7 +29,7 @@ const STR = {
 
 // 颜色阈值配置
 let colorThresholds = {
-    high: 40,  // 高占比阈值（红色）
+    high: 80,  // 高占比阈值（红色）
     low: 5     // 低占比阈值（灰色）
 };
 
