@@ -12,6 +12,8 @@
 #include "symbol.h"
 #include "utils.h"
 
+extern int need_kernel_callchain;
+
 /* lookup symbol by addr: find symbol with largest addr <= target using binary search */
 const char *find_name(struct symbol_table *st, uint64_t addr) {
     if (!st || st->size == 0)
@@ -102,6 +104,9 @@ int print_node_html(FILE *fp, struct node *n, int k) {
         struct child *c = arr[i];
         int count = c->n->count;
         double pct = 100.0 * count / (n->count ? n->count : 1);
+        if (pct < MIN_SHOW_PERCENT) {
+            continue;
+        }
         fprintf(fp, "<li>\n");
         fprintf(fp, "<input type=\"checkbox\" id=\"c%d\" />\n", k);
         fprintf(fp,
@@ -139,10 +144,10 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
                 // https://wolf.nereid.pl/posts/perf-stack-traces/
                 continue;
             }
-            if (ust)
-                name = find_name(ust, addr);
-            if (!name && kst)
+            if (kst && need_kernel_callchain)
                 name = find_name(kst, addr);
+            if (!name && ust)
+                name = find_name(ust, addr);
             char hexbuf[64];
             if (!name) {
                 WARNING("no name found 0x%lx\n", addr);

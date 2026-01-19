@@ -35,6 +35,7 @@ pid_t pid;
 int pids[MAX_PIDS];
 int pid_num = 0;
 int use_tui = 0;
+int need_kernel_callchain = 0;
 
 void int_exit(int _) {
 }
@@ -44,7 +45,6 @@ int main(int argc, char *argv[]) {
     int enable_debug = 0;
     int rc = 0;
     int sample_freq = 777;
-    int need_kernel_callchain = 0;
     int http_port = 0;
     int only_launch_http_server = 0;
     argparse parser;
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
                     NULL,
                     "launch"),
         ARG_INT(&http_port, NULL, "--port", "http server port", " <port>", "port"),
-        ARG_BOOLEAN(&use_tui, "-T", "--tui", "use tui instead of html", NULL, "tui"),
+        ARG_BOOLEAN(&use_tui, NULL, "--tui", "use tui instead of html", NULL, "tui"),
         ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
         ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
         ARG_END()};
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
         if (cgroup_fd < 0) {
             goto cleanup;
         }
-        profile_process(cgroup_fd, sample_freq, need_kernel_callchain);
+        profile_process(cgroup_fd, sample_freq);
         // start_http_server(http_port);
 
         ptrace(PTRACE_CONT, pid, 0, 0);

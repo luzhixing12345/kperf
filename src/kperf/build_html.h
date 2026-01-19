@@ -4,6 +4,8 @@
 #include "perf.h"
 #include "symbol.h"
 
+#define MIN_SHOW_PERCENT 1
+
 /* tree node */
 struct child {
     char *name;

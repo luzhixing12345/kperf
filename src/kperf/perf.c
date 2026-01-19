@@ -24,6 +24,7 @@ int cpu_nums;
 struct perf_sample_table *pst;
 
 extern void int_exit(int _);
+extern int need_kernel_callchain;
 
 /* ================= perf helpers ================= */
 
@@ -161,7 +162,7 @@ void *sample_handler(void *arg) {
 
 /* ================= main perf logic ================= */
 
-int profile_process(int cgroup_fd, int sample_freq, int need_kernel_callchain) {
+int profile_process(int cgroup_fd, int sample_freq) {
     int i;
     int cpu_num;
     int epfd;

@@ -22,11 +22,15 @@ int print_node_tui(struct node *n, int k) {
     int idx = 0;
     for (struct child *c = n->children; c; c = c->next) arr[idx++] = c;
 
-    /* TODO: 你原来这里可以按 count 排序 */
-
     for (int i = 0; i < cnt; i++) {
         struct child *c = arr[i];
         int is_last = (i == cnt - 1);
+        /* 当前分支符号 */
+        int count = c->n->count;
+        double pct = 100.0 * count / (n->count ? n->count : 1);
+        if (pct < MIN_SHOW_PERCENT) {
+            continue;
+        }
 
         /* 打印 tree 前缀 */
         for (int d = 0; d < k; d++) {
@@ -36,11 +40,8 @@ int print_node_tui(struct node *n, int k) {
                 printf("    ");
         }
 
-        /* 当前分支符号 */
         printf("%s── %s", is_last ? "└" : "├", c->name);
 
-        int count = c->n->count;
-        double pct = 100.0 * count / (n->count ? n->count : 1);
         printf(" (%.1f%% %d/%ld)\n", pct, count, n->count);
 
         /* 记录这一层是否还有兄弟 */
