@@ -1,8 +1,20 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "build_html.h"
+
+
+static int cmp_child(const void *a, const void *b) {
+    struct child *ca = *(struct child **)a;
+    struct child *cb = *(struct child **)b;
+    if (ca->n->count > cb->n->count)
+        return -1;
+    if (ca->n->count < cb->n->count)
+        return 1;
+    return strcmp(ca->name, cb->name);
+}
 
 int print_node_tui(struct node *n, int k) {
     static int prefix[64];  // 记录每一层是否还有兄弟
@@ -20,6 +32,7 @@ int print_node_tui(struct node *n, int k) {
     struct child **arr = malloc(sizeof(struct child *) * cnt);
     int idx = 0;
     for (struct child *c = n->children; c; c = c->next) arr[idx++] = c;
+    qsort(arr, cnt, sizeof(struct child *), cmp_child);
 
     for (int i = 0; i < cnt; i++) {
         struct child *c = arr[i];

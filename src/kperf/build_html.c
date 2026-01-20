@@ -74,7 +74,7 @@ void node_free(struct node *n) {
     free(n);
 }
 
-int cmp_child(const void *a, const void *b) {
+static int cmp_child(const void *a, const void *b) {
     struct child *ca = *(struct child **)a;
     struct child *cb = *(struct child **)b;
     if (ca->n->count > cb->n->count)

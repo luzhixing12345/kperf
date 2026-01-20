@@ -7,6 +7,8 @@
 #include <time.h>
 #include <stdint.h>
 
+#define MAX_RUNTIME 8
+
 /* Timer helpers */
 struct timer {
     struct timespec ts;
@@ -55,9 +57,14 @@ int main(void) {
 
     int iteration = 0;
     struct timer overall_timer;
+    struct timer program_timer;
     timer_start(&overall_timer);
+    timer_start(&program_timer);
 
     for (;;) {
+        if (timer_elapsed_ms(&program_timer) >= (MAX_RUNTIME * 1000)) {
+            break;
+        }
         struct timer t;
         timer_start(&t);
         someFunction(iteration);

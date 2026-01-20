@@ -140,3 +140,7 @@ int copy_file(const char *src, const char *dst) {
     DEBUG("copied %s to %s\n", src, dst);
     return 0;
 }
+
+int file_exists(const char *path) {
+    return access(path, R_OK) == 0;
+}

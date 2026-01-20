@@ -11,9 +11,6 @@ struct symbol {
     char *name;
     uint64_t addr;
     char *module;
-
-    // private
-    long called_count;
 };
 
 struct symbol_table {

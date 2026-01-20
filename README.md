@@ -55,8 +55,15 @@ by the way, you can stop monitoring at anytime with ctrl+c (interrupt)
 
 ## build from scratch
 
+this project need some dependencies
+
+- clang & libbpf-dev: for compiling ebpf code
+- libelf-dev: for parsing elf file
+- libz-dev: for compressing data
+- binutils-dev: for parsing dwarf info
+
 ```bash
-sudo apt install libbpf-dev libelf-dev clang libz-dev
+sudo apt install libbpf-dev libelf-dev clang libz-dev binutils-dev
 ```
 
 ```bash

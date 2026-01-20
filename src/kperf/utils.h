@@ -9,3 +9,4 @@ unsigned long long parse_hex(char *p, int *n);
 char **parse_cmdline(const char *cmdline);
 void free_argv(char **args);
 int copy_file(const char *src, const char *dst);
+int file_exists(const char *path);
