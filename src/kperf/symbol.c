@@ -17,6 +17,8 @@
 #include "symbol.h"
 #include "utils.h"
 
+extern int enable_debug;
+
 static int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start, uint64_t map_offset) {
     DEBUG("load elf file: %s\n", elf_path);
 
@@ -284,7 +286,10 @@ int load_user_symbols(struct symbol_table *st, int pid) {
         return -1;
     }
     qsort(st->symbols, st->size, sizeof(struct symbol), symbol_cmp);
-    // save_symbol_table(st, "ust.txt");
+    if (enable_debug) {
+        save_symbol_table(st, "ust.txt");
+        DEBUG("save user symbol table to ust.txt\n");
+    }
     return 0;
 
     /*

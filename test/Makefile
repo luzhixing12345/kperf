@@ -265,42 +265,11 @@ EXECUTABLES = $(OBJS:.o=)
 each: $(EXECUTABLES)
 .PHONY: each
 
-# ------------------------- #
-#        multi-exe          #
-# ------------------------- #
 
-$(T1): $(OBJS-T1)
+cpu/p99: cpu/p99.o
 	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@
-	$(Q) $(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
-$(T2): $(OBJS-T2)
-	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@
-	$(Q) $(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
-$(T3): $(OBJS-T3)
-	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@
-	$(Q) $(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
+	$(Q) $(CC) $< $(LDFLAGS) -lm -o $@
 
-multi-exe: $(MULTI_EXE_TARGETS)
-.PHONY: multi-exe
-
-# ------------------------- #
-#        bpf program        #
-# ------------------------- #
-
-BPF_PATH = src/bpf
-BPF_SRC = $(call rwildcard, $(BPF_PATH), %.bpf.c)
-BPF_OBJS = $(BPF_SRC:.bpf.c=.bpf.o)
-DEPS	+= $(foreach obj,$(BPF_OBJS),\
-		$(subst $(comma),_,$(dir $(obj)).$(notdir $(obj)).d))
-CLANG   = clang
-
-$(BPF_OBJS):
-%.bpf.o: %.bpf.c
-	$(E) "  CLANG      %s\n" $@
-	$(Q) $(CLANG) $(c_flags) -target bpf -c $< -o $@
-	$(Q) mkdir -p $(BUILD_PATH)/bpf
-	$(Q) cp $@ $(BUILD_PATH)/bpf
-
-bpf: $(BPF_OBJS)
 
 CFLAGS_DYNOPT += -fPIC
 $(OBJS):

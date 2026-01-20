@@ -28,21 +28,28 @@
 
 /* -------- global vars -------- */
 int timeout = -1;
+int want_exit = 0;
+int enable_debug = 0;
 struct symbol_table *kst = NULL;
 struct symbol_table *ust = NULL;
 extern struct perf_sample_table *pst;
+extern int is_server_running;
 pid_t pid;
 int pids[MAX_PIDS];
 int pid_num = 0;
 int use_tui = 0;
 int need_kernel_callchain = 0;
 
-void int_exit(int _) {
+void int_exit(int signo) {
+    DEBUG("received signal %d, exit now\n", signo);
+    want_exit = 1;
+    if (is_server_running) {
+        exit(0);
+    }
 }
 
 int main(int argc, char *argv[]) {
     char *exe_cmd = NULL;
-    int enable_debug = 0;
     int rc = 0;
     int sample_freq = 777;
     int http_port = 0;
@@ -50,11 +57,10 @@ int main(int argc, char *argv[]) {
     argparse parser;
     argparse_option options[] = {
         ARG_INT(&pid, "-p", "--pid", "process id to monitor", " <pid>", "pid"),
-        ARG_BOOLEAN(&need_kernel_callchain, "-k", "--kernel", "kernel callchain only", NULL, "kernel"),
+        ARG_BOOLEAN(&need_kernel_callchain, "-k", "--kernel", "also check kernel callchain", NULL, "kernel"),
         ARG_STR(&exe_cmd, NULL, "--", "command to run", " <cmd>", "command"),
         ARG_INT(&sample_freq, "-F", "--freq", "sampling frequency [default 777 Hz]", " <Hz>", "freq"),
         ARG_INT(&timeout, "-t", "--timeout", "maximum monitor time in seconds", " <s>", "timeout"),
-        ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
         ARG_BOOLEAN(&only_launch_http_server,
                     "-s",
                     "--server",
@@ -65,6 +71,7 @@ int main(int argc, char *argv[]) {
         ARG_BOOLEAN(&use_tui, NULL, "--tui", "use tui instead of html", NULL, "tui"),
         ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
         ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
+        ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
         ARG_END()};
 
     argparse_init(&parser, options, ARGPARSE_ENABLE_CMD);
@@ -105,7 +112,7 @@ int main(int argc, char *argv[]) {
     init_symbol_table(kst);
     init_symbol_table(ust);
     init_perf_sample_table(pst);
-    // signal(SIGINT, int_exit);
+    signal(SIGINT, int_exit);
     // signal(SIGTERM, int_exit);
 
     if (!is_root()) {
@@ -166,6 +173,8 @@ int main(int argc, char *argv[]) {
                     break;
                 } else {
                     DEBUG("tracee stopped, sig=%d\n", sig);
+                    kill(pid, SIGTERM);
+                    ptrace(PTRACE_CONT, pid, 0, SIGTERM);
                     /* pass signal to child process */
                 }
             }

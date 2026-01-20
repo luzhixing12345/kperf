@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <linux/perf_event.h>
 #include <pthread.h>
-#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,8 +21,7 @@
 
 int cpu_nums;
 struct perf_sample_table *pst;
-
-extern void int_exit(int _);
+extern int want_exit;
 extern int need_kernel_callchain;
 
 /* ================= perf helpers ================= */
@@ -116,6 +114,7 @@ void *sample_handler(void *arg) {
     struct epoll_event events[max_events];
 
     for (;;) {
+        if (want_exit) break;
         int n = epoll_wait(st->epfd, events, max_events, -1);
         if (n < 0) {
             if (errno == EINTR)

@@ -228,3 +228,4 @@ src/kperf/kperf
 a.c
 a
 a.cpp
+*.txt

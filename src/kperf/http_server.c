@@ -248,10 +248,10 @@ int start_http_server(int port) {
             write(client_fd, buf, r);
         }
 
-        DEBUG("write file %s to client\n", file_path);
-
         close(fd);
         close(client_fd);
+        // TODO: do not close client fd immediately, because user may refresh the page
+        // it will use the same fd to send request
     }
 
     close(server_fd);

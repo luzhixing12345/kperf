@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 #include "build_html.h"
-#include "log.h"
 
 int print_node_tui(struct node *n, int k) {
     static int prefix[64];  // 记录每一层是否还有兄弟
