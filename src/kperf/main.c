@@ -41,10 +41,12 @@ int enable_tui = 0;
 int need_kernel_callchain = 0;
 
 void int_exit(int signo) {
-    DEBUG("received signal %d, exit now\n", signo);
+    DEBUG("kperf received signal %d, exit now\n", signo);
     want_exit = 1;
     if (is_server_running) {
         exit(0);
+    } else {
+        kill(g_pid, SIGKILL);
     }
 }
 
@@ -144,6 +146,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* SIGSTOP */
+        DEBUG("kperf pid = %d, child pid = %d\n", getpid(), g_pid);
         waitpid(g_pid, &status, 0);
         ptrace(PTRACE_SETOPTIONS, g_pid, 0, PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT | PTRACE_O_EXITKILL);
         ptrace(PTRACE_CONT, g_pid, 0, 0);
@@ -163,23 +166,39 @@ int main(int argc, char *argv[]) {
         ptrace(PTRACE_CONT, g_pid, 0, 0);
         while (1) {
             waitpid(g_pid, &status, 0);
+            /* 1. tracee 正常退出 */
+            if (WIFEXITED(status)) {
+                DEBUG("tracee exited, status=%d\n", WEXITSTATUS(status));
+                break;
+            }
+
+            /* 2. tracee 被信号杀死 */
+            if (WIFSIGNALED(status)) {
+                DEBUG("tracee killed by signal %d (%s)\n", WTERMSIG(status), strsignal(WTERMSIG(status)));
+                break;
+            }
+            /* 3. tracee 停止（ptrace 的核心路径） */
             if (WIFSTOPPED(status)) {
                 int sig = WSTOPSIG(status);
 
-                if (sig == SIGTRAP && ((status >> 16) & 0xffff) == PTRACE_EVENT_EXIT) {
-                    unsigned long exit_code;
-                    ptrace(PTRACE_GETEVENTMSG, g_pid, 0, &exit_code);
-                    load_user_symbols(ust, g_pid);
-                    DEBUG("tracee about to exit, code=%lu\n", exit_code);
-                    break;
-                } else if (sig == SIGINT) {
-                    DEBUG("tracee stopped, sig=%d (%s)\n", sig, strsignal(sig));
-                    kill(g_pid, SIGTERM);
-                    ptrace(PTRACE_CONT, g_pid, 0, SIGTERM);
-                    /* pass signal to child process */
-                } else {
-                    DEBUG("tracee stopped, sig=%d (%s)\n", sig, strsignal(sig));
+                if (sig == SIGTRAP && ((status >> 16) & 0xffff)) {
+                    int event = (status >> 16) & 0xffff;
+
+                    if (event == PTRACE_EVENT_EXIT) {
+                        unsigned long exit_code;
+                        ptrace(PTRACE_GETEVENTMSG, g_pid, 0, &exit_code);
+                        load_user_symbols(ust, g_pid);
+                        DEBUG("tracee about to exit, code=%lu\n", exit_code);
+
+                        ptrace(PTRACE_CONT, g_pid, 0, 0);
+                        break;
+                    }
                 }
+                
+                DEBUG("tracee stopped by signal %d (%s)\n", sig, strsignal(sig));
+
+                ptrace(PTRACE_CONT, g_pid, 0, sig);
+                continue;
             }
             ptrace(PTRACE_CONT, g_pid, 0, 0);
         }

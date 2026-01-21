@@ -53,7 +53,7 @@ sudo kperf -p <pid> -t 60
 
 by the way, you can stop monitoring at anytime with ctrl+c (interrupt)
 
-## build from scratch
+## Build from scratch
 
 this project need some dependencies
 
@@ -68,6 +68,14 @@ sudo apt install libbpf-dev libelf-dev clang libz-dev binutils-dev
 
 ```bash
 make
+```
+
+## Test
+
+```bash
+make
+make test
+sudo python3 -m unittest discover -s test
 ```
 
 ## reference

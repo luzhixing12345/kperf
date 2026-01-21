@@ -40,19 +40,22 @@ int print_node_tui(struct node *n, int k) {
         /* 当前分支符号 */
         int count = c->n->count;
         double pct = 100.0 * count / (n->count ? n->count : 1);
-        if (pct < MIN_SHOW_PERCENT) {
-            continue;
-        }
+        // if (pct < MIN_SHOW_PERCENT) {
+        //     continue;
+        // }
 
         /* 打印 tree 前缀 */
         for (int d = 0; d < k; d++) {
             if (prefix[d])
-                printf("│   ");
+                printf("│ ");
             else
-                printf("    ");
+                printf("  ");
         }
 
-        printf("%s── %s", is_last ? "└" : "├", c->name);
+        if (k == 0) {
+            printf("%s", c->name);
+        } else
+            printf("%s── %s", is_last ? "└" : "├", c->name);
 
         printf(" (%.1f%% %d/%ld)\n", pct, count, n->count);
 
