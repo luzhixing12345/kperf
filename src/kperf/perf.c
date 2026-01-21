@@ -26,8 +26,8 @@ extern int need_kernel_callchain;
 
 /* ================= perf helpers ================= */
 
-static long perf_event_open(struct perf_event_attr *attr, pid_t _pid, int cpu, int group_fd, unsigned long flags) {
-    return syscall(__NR_perf_event_open, attr, _pid, cpu, group_fd, flags);
+static long perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd, unsigned long flags) {
+    return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
 int init_perf_sample_table(struct perf_sample_table *table) {
@@ -58,7 +58,7 @@ void add_perf_sample(struct perf_sample_table *st, uint32_t pid, uint32_t tid, u
             ERR("perf sample realloc failed");
             exit(1);
         }
-        DEBUG("realloc perf sample table to %d", st->capacity);
+        // DEBUG("realloc perf sample table to %d", st->capacity);
     }
     struct perf_sample *ps = &st->samples[st->size];
     ps->pid = pid;
@@ -167,7 +167,6 @@ int profile_process(int cgroup_fd, int sample_freq) {
     int epfd;
     long psize;
     pthread_t sample_thread;
-    // struct sample_thread_arg st_arg;
     struct perf_fd_ctx *ctxs;
     int ctx_cnt = 0;
 

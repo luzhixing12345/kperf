@@ -34,10 +34,10 @@ struct symbol_table *kst = NULL;
 struct symbol_table *ust = NULL;
 extern struct perf_sample_table *pst;
 extern int is_server_running;
-pid_t pid;
+int g_pid;
 int pids[MAX_PIDS];
 int pid_num = 0;
-int use_tui = 0;
+int enable_tui = 0;
 int need_kernel_callchain = 0;
 
 void int_exit(int signo) {
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
     int only_launch_http_server = 0;
     argparse parser;
     argparse_option options[] = {
-        ARG_INT(&pid, "-p", "--pid", "process id to monitor", " <pid>", "pid"),
+        ARG_INT(&g_pid, "-p", "--pid", "process id to monitor", " <pid>", "pid"),
         ARG_BOOLEAN(&need_kernel_callchain, "-k", "--kernel", "also check kernel callchain", NULL, "kernel"),
         ARG_STR(&exe_cmd, NULL, "--", "command to run", " <cmd>", "command"),
         ARG_INT(&sample_freq, "-F", "--freq", "sampling frequency [default 777 Hz]", " <Hz>", "freq"),
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
                     NULL,
                     "launch"),
         ARG_INT(&http_port, NULL, "--port", "http server port", " <port>", "port"),
-        ARG_BOOLEAN(&use_tui, NULL, "--tui", "use tui instead of html", NULL, "tui"),
+        ARG_BOOLEAN(&enable_tui, NULL, "--tui", "use tui instead of html", NULL, "tui"),
         ARG_BOOLEAN(NULL, "-h", "--help", "show help information", NULL, "help"),
         ARG_BOOLEAN(NULL, "-v", "--version", "show version", NULL, "version"),
         ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
                       "Full documentation: https://github.com/luzhixing12345/kperf");
     argparse_parse(&parser, argc, argv);
 
-    if (arg_ismatch(&parser, "help") || (!exe_cmd && !pid && !only_launch_http_server)) {
+    if (arg_ismatch(&parser, "help") || (!exe_cmd && !g_pid && !only_launch_http_server)) {
         argparse_info(&parser);
         free_argparse(&parser);
         return 0;
@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
 
     if (enable_debug) {
         log_set_level(LOG_DEBUG);
+        enable_tui = 1;
     }
 
     if (only_launch_http_server) {
@@ -130,8 +131,8 @@ int main(int argc, char *argv[]) {
     // run a program: ./kperf -- <command>
     int status;
     if (exe_cmd) {
-        pid = fork();
-        if (pid == 0) {
+        g_pid = fork();
+        if (g_pid == 0) {
             /* child */
             ptrace(PTRACE_TRACEME, 0, NULL, NULL);
             raise(SIGSTOP);
@@ -143,14 +144,14 @@ int main(int argc, char *argv[]) {
         }
 
         /* SIGSTOP */
-        waitpid(pid, &status, 0);
-        ptrace(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT | PTRACE_O_EXITKILL);
-        ptrace(PTRACE_CONT, pid, 0, 0);
+        waitpid(g_pid, &status, 0);
+        ptrace(PTRACE_SETOPTIONS, g_pid, 0, PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT | PTRACE_O_EXITKILL);
+        ptrace(PTRACE_CONT, g_pid, 0, 0);
 
         /* wait for exec */
-        waitpid(pid, &status, 0);
+        waitpid(g_pid, &status, 0);
 
-        pids[0] = pid;
+        pids[0] = g_pid;
         pid_num = 1;
         int cgroup_fd = setup_cgroup(pids, 1);
         if (cgroup_fd < 0) {
@@ -159,33 +160,35 @@ int main(int argc, char *argv[]) {
         profile_process(cgroup_fd, sample_freq);
         // start_http_server(http_port);
 
-        ptrace(PTRACE_CONT, pid, 0, 0);
+        ptrace(PTRACE_CONT, g_pid, 0, 0);
         while (1) {
-            waitpid(pid, &status, 0);
+            waitpid(g_pid, &status, 0);
             if (WIFSTOPPED(status)) {
                 int sig = WSTOPSIG(status);
 
                 if (sig == SIGTRAP && ((status >> 16) & 0xffff) == PTRACE_EVENT_EXIT) {
                     unsigned long exit_code;
-                    ptrace(PTRACE_GETEVENTMSG, pid, 0, &exit_code);
-                    load_user_symbols(ust, pid);
+                    ptrace(PTRACE_GETEVENTMSG, g_pid, 0, &exit_code);
+                    load_user_symbols(ust, g_pid);
                     DEBUG("tracee about to exit, code=%lu\n", exit_code);
                     break;
-                } else {
-                    DEBUG("tracee stopped, sig=%d\n", sig);
-                    kill(pid, SIGTERM);
-                    ptrace(PTRACE_CONT, pid, 0, SIGTERM);
+                } else if (sig == SIGINT) {
+                    DEBUG("tracee stopped, sig=%d (%s)\n", sig, strsignal(sig));
+                    kill(g_pid, SIGTERM);
+                    ptrace(PTRACE_CONT, g_pid, 0, SIGTERM);
                     /* pass signal to child process */
+                } else {
+                    DEBUG("tracee stopped, sig=%d (%s)\n", sig, strsignal(sig));
                 }
             }
-            ptrace(PTRACE_CONT, pid, 0, 0);
+            ptrace(PTRACE_CONT, g_pid, 0, 0);
         }
     } else {
-        load_user_symbols(ust, pid);
+        load_user_symbols(ust, g_pid);
     }
 
     INFO("perf sample size = %d\n", pst->size);
-    if (!use_tui) {
+    if (!enable_tui) {
         build_html(pst, ust, kst);
         start_http_server(http_port);
     } else {

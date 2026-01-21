@@ -335,7 +335,7 @@ void save_symbol_table(struct symbol_table *st, const char *file) {
         return;
     }
     for (int i = 0; i < st->size; i++) {
-        fprintf(fp, "%s\t0x%lx\t%s\n", st->symbols[i].name, st->symbols[i].addr, st->symbols[i].module);
+        fprintf(fp, "%35s\t0x%lx\t%s\n", st->symbols[i].name, st->symbols[i].addr, st->symbols[i].module);
     }
     fclose(fp);
 }

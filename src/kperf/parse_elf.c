@@ -90,18 +90,19 @@ int read_build_id(Elf *elf, unsigned char *id, size_t *id_len) {
     return -1;
 }
 
-int load_dwarf_info(struct symbol_table *st, char *elf_path, uint64_t map_start, uint64_t map_offset) {
+int load_dwarf_info(struct symbol_table *st, char *elf_path, uint64_t map_start, uint64_t map_offset,
+                    char *module_name) {
     /* First check whether ELF contains DWARF sections (.debug_info or .debug_line)
      * using libelf; if not present, return -1 immediately.
      */
-    int fd_check = open(elf_path, O_RDONLY);
-    if (fd_check < 0) {
+    int fd = open(elf_path, O_RDONLY);
+    if (fd < 0) {
         DEBUG("open %s failed: %s\n", elf_path, strerror(errno));
         return -1;
     }
-    Elf *elf_check = elf_begin(fd_check, ELF_C_READ, NULL);
-    if (!elf_check) {
-        close(fd_check);
+    Elf *e = elf_begin(fd, ELF_C_READ, NULL);
+    if (!e) {
+        close(fd);
         DEBUG("elf_begin failed for %s\n", elf_path);
         return -1;
     }
@@ -109,11 +110,11 @@ int load_dwarf_info(struct symbol_table *st, char *elf_path, uint64_t map_start,
     Elf_Scn *scn_check = NULL;
     GElf_Shdr shdr_check;
     size_t shstrndx;
-    if (elf_getshdrstrndx(elf_check, &shstrndx) == 0) {
-        while ((scn_check = elf_nextscn(elf_check, scn_check)) != NULL) {
+    if (elf_getshdrstrndx(e, &shstrndx) == 0) {
+        while ((scn_check = elf_nextscn(e, scn_check)) != NULL) {
             if (gelf_getshdr(scn_check, &shdr_check) != &shdr_check)
                 continue;
-            const char *sname = elf_strptr(elf_check, shstrndx, shdr_check.sh_name);
+            const char *sname = elf_strptr(e, shstrndx, shdr_check.sh_name);
             if (!sname)
                 continue;
             if (strcmp(sname, ".debug_info") == 0 || strcmp(sname, ".debug_line") == 0 ||
@@ -123,8 +124,8 @@ int load_dwarf_info(struct symbol_table *st, char *elf_path, uint64_t map_start,
             }
         }
     }
-    elf_end(elf_check);
-    close(fd_check);
+    elf_end(e);
+    close(fd);
     if (!has_dwarf) {
         DEBUG("no DWARF sections in %s\n", elf_path);
         return -1;
@@ -168,7 +169,7 @@ int load_dwarf_info(struct symbol_table *st, char *elf_path, uint64_t map_start,
                         } else {
                             // DEBUG("FUNC %-30s RUNTIME=0x%lx\n", name, (unsigned long)runtime_addr);
                         }
-                        add_symbol(st, name, runtime_addr, NULL);
+                        add_symbol(st, name, runtime_addr, module_name);
                     }
                 }
                 free(syms);
@@ -251,7 +252,7 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
     Elf_Scn *scn = NULL;
     GElf_Shdr shdr;
 
-    if (load_dwarf_info(st, elf_path, map_start, map_offset) == 0) {
+    if (load_dwarf_info(st, elf_path, map_start, map_offset, basename(elf_path)) == 0) {
         DEBUG("finish loading elf file: %s\n", elf_path);
         goto finish;
     }
@@ -261,7 +262,7 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
      */
     char debug_path[PATH_MAX];
     if (find_debug_link_elf(e, debug_path) == 0) {
-        if (load_dwarf_info(st, debug_path, map_start, map_offset) == 0) {
+        if (load_dwarf_info(st, debug_path, map_start, map_offset, basename(elf_path)) == 0) {
             DEBUG("finish loading elf file: %s\n", debug_path);
             goto finish;
         }
@@ -293,7 +294,7 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
                 continue;
 
             uint64_t runtime_addr = map_start + sym.st_value - map_offset;
-            add_symbol(st, name, runtime_addr, NULL);
+            add_symbol(st, name, runtime_addr, basename(elf_path));
         }
     }
 
