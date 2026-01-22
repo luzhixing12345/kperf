@@ -297,7 +297,7 @@ CLANG   = clang
 $(BPF_OBJS):
 %.bpf.o: %.bpf.c
 	$(E) "  CLANG   %s\n" $@
-	$(Q) $(CLANG) $(c_flags) -target bpf -c $< -o $@
+	$(Q) $(CLANG) $(c_flags) -g -target bpf -c $< -o $@
 	$(Q) mkdir -p $(BUILD_PATH)/bpf
 	$(Q) cp $@ $(BUILD_PATH)/bpf
 

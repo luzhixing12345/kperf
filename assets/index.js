@@ -131,8 +131,10 @@ function createSearchBox() {
     if (!searchBox) return;
 
     const input = searchBox.querySelector('.search-input');
-    const searchBtn = document.getElementById('searchBtn') || searchBox.querySelector('#searchBtn') || searchBox.querySelector('.search-button');
-    const clearBtn = document.getElementById('clearBtn') || searchBox.querySelector('#clearBtn') || searchBox.querySelectorAll('.search-button')[1];
+    const searchBtn = document.getElementById('searchBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const expandBtn = document.getElementById('expandBtn');
+    const collapseBtn = document.getElementById('collapseBtn');
     const autocompleteList = searchBox.querySelector('.autocomplete-items');
     let activeIndex = -1;
     let matches = [];
@@ -247,6 +249,8 @@ function createSearchBox() {
         });
     }
     if (clearBtn) clearBtn.addEventListener('click', () => { clearHighlight(); input.value = ''; autocompleteList.style.display = 'none'; });
+    if (expandBtn) expandBtn.addEventListener('click', () => { expandAll(); });
+    if (collapseBtn) collapseBtn.addEventListener('click', () => { collapseAll(); });
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && activeIndex === -1) performSearch(input.value); });
 }
 
@@ -530,7 +534,9 @@ document.addEventListener('DOMContentLoaded', () => {
     createHelpModal();
     addPerformanceColors();
     // 确保初始状态为折叠
-    ensureCollapsed();
+    // ensureCollapsed();
+    // 展开所有
+    expandAll();
 
     // 点击空白处关闭帮助模态框
     window.addEventListener('click', (e) => {

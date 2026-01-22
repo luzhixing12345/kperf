@@ -1,20 +1,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "build_html.h"
-
-
-static int cmp_child(const void *a, const void *b) {
-    struct child *ca = *(struct child **)a;
-    struct child *cb = *(struct child **)b;
-    if (ca->n->count > cb->n->count)
-        return -1;
-    if (ca->n->count < cb->n->count)
-        return 1;
-    return strcmp(ca->name, cb->name);
-}
 
 int print_node_tui(struct node *n, int k) {
     static int prefix[64];  // 记录每一层是否还有兄弟
@@ -57,7 +45,13 @@ int print_node_tui(struct node *n, int k) {
         } else
             printf("%s── %s", is_last ? "└" : "├", c->name);
 
-        printf(" (%.1f%% %d/%ld)\n", pct, count, n->count);
+        printf(" (%.1f%% %d/%ld)", pct, count, n->count);
+        
+        if (k == 0 && c->n->pid != c->n->tid) {
+            printf("[pid: %d, tid: %d]\n", c->n->pid, c->n->tid);
+        } else {
+            printf("\n");
+        }
 
         /* 记录这一层是否还有兄弟 */
         prefix[k] = !is_last;

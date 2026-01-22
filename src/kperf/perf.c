@@ -145,6 +145,7 @@ void *sample_handler(void *arg) {
 
                 if (event_size <= 0) {
                     /* resync */
+                    WARNING("unexpected resync\n");
                     tail = head;
                     break;
                 }

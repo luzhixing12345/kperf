@@ -42,13 +42,13 @@ const char *find_name(struct symbol_table *st, uint64_t addr) {
 }
 
 /* add name under node and return child node */
-struct node *node_add(struct node *cur, const char *name) {
+struct node *node_add(struct node *cur, const char *name, uint32_t pid, uint32_t tid) {
     if (!cur)
         return NULL;
     // cur->count++;
     struct child *it = cur->children;
     while (it) {
-        if (strcmp(it->name, name) == 0) {
+        if (!strcmp(it->name, name) && it->n->pid == pid && it->n->tid == tid) {
             // it->n->count++;
             return it->n;
         }
@@ -58,6 +58,8 @@ struct node *node_add(struct node *cur, const char *name) {
     nc->name = strdup(name);
     nc->n = calloc(1, sizeof(*nc->n));
     nc->n->count = 0;
+    nc->n->pid = pid;
+    nc->n->tid = tid;
     nc->next = cur->children;
     cur->children = nc;
     return nc->n;
@@ -74,15 +76,37 @@ void node_free(struct node *n) {
     free(n);
 }
 
-static int cmp_child(const void *a, const void *b) {
+/*
+ * 1. pid, smaller first
+ * 2. tid, smaller first
+ * 3. count, larger first
+ * 4. name, lexicographically
+ */
+int cmp_child(const void *a, const void *b) {
     struct child *ca = *(struct child **)a;
     struct child *cb = *(struct child **)b;
-    if (ca->n->count > cb->n->count)
+    // first compare pid
+    if (ca->n->pid < cb->n->pid) {
         return -1;
+    } else if (ca->n->pid > cb->n->pid) {
+        return 1;
+    }
+    // then compare tid
+    if (ca->n->tid < cb->n->tid) {
+        return -1;
+    } else if (ca->n->tid > cb->n->tid) {
+        return 1;
+    }
+    // then compare count
+    if (ca->n->count > cb->n->count) {
+        return -1;
+    }
     if (ca->n->count < cb->n->count)
         return 1;
+    // then compare name
     return strcmp(ca->name, cb->name);
 }
+
 
 int print_node_html(FILE *fp, struct node *n, int k) {
     if (!n)
@@ -104,20 +128,25 @@ int print_node_html(FILE *fp, struct node *n, int k) {
         struct child *c = arr[i];
         int count = c->n->count;
         double pct = 100.0 * count / (n->count ? n->count : 1);
-        if (pct < MIN_SHOW_PERCENT) {
-            continue;
-        }
+        // if (pct < MIN_SHOW_PERCENT) {
+        //     continue;
+        // }
         fprintf(fp, "<li>\n");
         fprintf(fp, "<input type=\"checkbox\" id=\"c%d\" />\n", k);
         fprintf(fp,
-                "<label class=\"tree_label\" for=\"c%d\">%s(%.1f%% %d/%ld)</label>\n",
+                "<label class=\"tree_label\" for=\"c%d\">%s(%.1f%% %d/%ld)",
                 k,
                 c->name,
                 pct,
                 count,
                 n->count);
+        if (k == 0 && c->n->pid != c->n->tid) {
+            fprintf(fp, " [pid: %d, tid: %d]</label>\n", c->n->pid, c->n->tid);
+        } else {
+            fprintf(fp, "</label>\n");
+        }
         fprintf(fp, "<ul>\n");
-        k = print_node_html(fp, c->n, k + 1);
+        print_node_html(fp, c->n, k + 1);
         fprintf(fp, "</ul>\n");
         fprintf(fp, "</li>\n");
     }
@@ -139,6 +168,8 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
         /* iterate callchain from last to first */
         for (int j = (int)s->nr - 1; j >= 0; j--) {
             uint64_t addr = s->ips[j];
+            uint32_t pid = s->pid;
+            uint32_t tid = s->tid;
             const char *name = NULL;
             if (addr >= 0xfffffffffffffe00) {
                 // https://wolf.nereid.pl/posts/perf-stack-traces/
@@ -148,13 +179,14 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
                 name = find_name(kst, addr);
             if (!name && ust)
                 name = find_name(ust, addr);
+
             char hexbuf[64];
             if (!name) {
                 WARNING("no name found 0x%lx\n", addr);
                 snprintf(hexbuf, sizeof(hexbuf), "0x%lx", (unsigned long)addr);
                 name = hexbuf;
             }
-            r = node_add(r, name);
+            r = node_add(r, name, pid, tid);
             r->count++;
         }
     }
