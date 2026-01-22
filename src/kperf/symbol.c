@@ -267,7 +267,7 @@ int load_kernel_symbols(struct symbol_table *st) {
         p = fgets(bb, sizeof(bb), fp);
         if (p == NULL)
             break;
-        n = sscanf(p, "%s %s %s\t[%s]", adr, type, name, module);
+        n = sscanf(p, "%s %s %s\t[%s", adr, type, name, module);
         if (n != 3 && n != 4) {
             fprintf(stderr, "fail to parse line: %s", p);
             continue;
@@ -280,9 +280,16 @@ int load_kernel_symbols(struct symbol_table *st) {
         addr = parse_hex(adr, &c);
         if (c == 0)
             continue;
-        add_symbol(st, name, addr, is_module ? module : NULL);
+        // set module's last char to '\0'
+        if (is_module)
+            module[strlen(module) - 1] = '\0';
+        add_symbol(st, name, addr, is_module ? module : "linux kernel");
     }
     fclose(fp);
+    if (enable_debug) {
+        save_symbol_table(st, "kst.txt");
+        DEBUG("save kernel symbol table to kst.txt\n");
+    }
 
     INFO("load kernel symbol %d items\n", st->size);
     return 0;

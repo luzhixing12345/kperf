@@ -99,7 +99,7 @@ void show_http_server_info(int port) {
 
     // ➜  Local:   http://127.0.0.1:36002/kperf-result/index.html
     // ➜  Remote:  http://192.168.1.125:36002/kperf-result/index.html
-    // ➜  press q / CTRL+C to quit
+    // ➜  press    CTRL+C to quit
     printf("\n");
     printf("    %sKperf v%s%s\n", GREEN, get_version_str(), RESET);
     printf("\n");

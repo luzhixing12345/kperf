@@ -21,23 +21,9 @@ sudo apt install kperf
 
 ## Quick Start
 
-specify the pid to monitor, the program will stop monitoring util the pid is finished or ctrl+c
-
 ```bash
-sudo kperf -p <pid>
-```
-
-for example
-
-```bash
-# program function callchain + kernel function callchain
-sudo kperf -p 100
-sudo kperf -p $(pidof abc)
-
-# kernel function callchain
-sudo kperf -p -100
-sudo kperf -p 100 -k
-sudo kperf -p 100 --kernel
+sudo kperf -- ./a.out
+sudo kperf -p `pidof a.out`
 ```
 
 ## setup timer

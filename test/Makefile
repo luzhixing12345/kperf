@@ -32,7 +32,7 @@ CC          	:= gcc
 SRC_PATH    	:= .
 SRC_EXT     	:= c
 BUILD_PATH 		:= .
-EXCLUDE_SRC 	:= # src/func.c
+EXCLUDE_SRC 	:= ./module
 TARGET      	:= 
 
 # ------------------------- #
@@ -189,7 +189,7 @@ ifneq ($(strip $(SRC_PATH)),)
 endif
 
 # exclude some source files
-SRC := $(filter-out $(EXCLUDE_SRC),$(SRC))
+SRC := $(filter-out $(EXCLUDE_SRC)/%,$(SRC))
 
 OBJS = $(SRC:$(SRC_EXT)=o)
 
@@ -263,6 +263,7 @@ EXECUTABLES = $(OBJS:.o=)
 	$(Q) $(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
 
 each: $(EXECUTABLES)
+	$(MAKE) -C module
 .PHONY: each
 
 
@@ -306,6 +307,7 @@ clean:
 	$(Q) rm -f $(LIBFDT_DYNAMIC)
 	$(Q) rm -f $(MULTI_EXE_TARGETS) $(MULTI_EXE_OBJS)
 	$(Q) rm -f $(BPF_OBJS)
+	make -C module clean
 
 release:
 	$(MAKE) -j4

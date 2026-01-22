@@ -12,6 +12,16 @@ static void busy_work(void)
     }
 }
 
+static void busy_no_work(void)
+{
+    volatile unsigned long i = 0;
+    for (i = 0; i < 1000000UL; i++) {
+        /* prevent optimization */
+        asm volatile("" ::: "memory");
+    }
+}
+
+
 static void run_5s_loop(void)
 {
     struct timespec start, now;
@@ -19,6 +29,7 @@ static void run_5s_loop(void)
 
     while (1) {
         busy_work();
+        busy_no_work();
         clock_gettime(CLOCK_MONOTONIC, &now);
         if ((now.tv_sec - start.tv_sec) >= MAX_RUNTIME)
             break;

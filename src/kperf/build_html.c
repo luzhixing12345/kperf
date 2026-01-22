@@ -13,6 +13,7 @@
 #include "utils.h"
 
 extern int need_kernel_callchain;
+int node_id = 0;
 
 /* lookup symbol by addr: find symbol with largest addr <= target using binary search */
 const char *find_name(struct symbol_table *st, uint64_t addr) {
@@ -60,6 +61,7 @@ struct node *node_add(struct node *cur, const char *name, uint32_t pid, uint32_t
     nc->n->count = 0;
     nc->n->pid = pid;
     nc->n->tid = tid;
+    nc->n->node_id = node_id++;
     nc->next = cur->children;
     cur->children = nc;
     return nc->n;
@@ -107,7 +109,6 @@ int cmp_child(const void *a, const void *b) {
     return strcmp(ca->name, cb->name);
 }
 
-
 int print_node_html(FILE *fp, struct node *n, int k) {
     if (!n)
         return k;
@@ -132,10 +133,10 @@ int print_node_html(FILE *fp, struct node *n, int k) {
         //     continue;
         // }
         fprintf(fp, "<li>\n");
-        fprintf(fp, "<input type=\"checkbox\" id=\"c%d\" />\n", k);
+        fprintf(fp, "<input type=\"checkbox\" id=\"c%d\" />\n", c->n->node_id);
         fprintf(fp,
                 "<label class=\"tree_label\" for=\"c%d\">%s(%.1f%% %d/%ld)",
-                k,
+                c->n->node_id,
                 c->name,
                 pct,
                 count,
@@ -157,6 +158,7 @@ int print_node_html(FILE *fp, struct node *n, int k) {
 struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
     struct node *root = calloc(1, sizeof(*root));
     root->count = 0;
+    root->node_id = node_id++;
 
     /* build tree from pst samples */
     for (int i = 0; i < pst->size; i++) {

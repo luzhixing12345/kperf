@@ -81,8 +81,8 @@ int main(int argc, char *argv[]) {
                       "kperf",
                       "linux kernel and user space program profiler",
                       "Examples:\n"
-                      "  sudo kperf -- ./a\n"
-                      "  sudo kperf -p `pidof a`\n\n"
+                      "  sudo kperf -- ./a\t\t    run program and analysis\n"
+                      "  sudo kperf -p `pidof a`\t    analysis running process\n\n"
                       "Full documentation: https://github.com/luzhixing12345/kperf");
     argparse_parse(&parser, argc, argv);
 
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
                         break;
                     }
                 }
-                
+
                 DEBUG("tracee stopped by signal %d (%s)\n", sig, strsignal(sig));
 
                 ptrace(PTRACE_CONT, g_pid, 0, sig);
@@ -207,6 +207,9 @@ int main(int argc, char *argv[]) {
     }
 
     INFO("perf sample size = %d\n", pst->size);
+    if (pst->size == 0) {
+        goto cleanup;
+    }
     if (!enable_tui) {
         build_html(pst, ust, kst);
         start_http_server(http_port);

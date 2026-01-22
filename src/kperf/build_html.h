@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include "perf.h"
 #include "symbol.h"
 
@@ -19,6 +20,7 @@ struct node {
     struct child *children;
     uint32_t pid;
     uint32_t tid;
+    uint32_t node_id;
 };
 
 struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst);
