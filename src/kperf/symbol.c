@@ -11,6 +11,9 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <libiberty/demangle.h>
+#include <libdwarf/libdwarf.h>
+#include <dwarf.h>
 #include <elf.h>
 #include <gelf.h>
 #include "log.h"
@@ -20,6 +23,7 @@
 
 extern int enable_debug;
 
+enum language_type language = -1;
 
 // static uint64_t find_dt_debug_address(pid_t pid, char *exe_path) {
 //     /* Use libelf to parse the ELF file on disk and locate the dynamic segment
@@ -319,6 +323,42 @@ void free_symbol_table(struct symbol_table *st) {
     free(st->symbols);
 }
 
+static char *auto_demangle(const char *sym) {
+    char *res;
+
+    switch (language) {
+        case LANGUAGE_C:
+            return strdup(sym);
+        case LANGUAGE_CPP:
+            /* no need for parameters and return type, only func name */
+            res = cplus_demangle(sym, DMGL_ANSI);
+            if (res)
+                return res;
+            return strdup(sym);
+        case LANGUAGE_RUST:
+            res = rust_demangle(sym, DMGL_ANSI);
+            if (res)
+                return res;
+            return strdup(sym);
+        case LANGUAGE_UNKNOWN:
+            /* C++ Itanium ABI */
+            if (sym[0] == '_' && sym[1] == 'Z') {
+                res = cplus_demangle(sym, DMGL_ANSI);
+                if (res)
+                    return res;
+            }
+
+            /* Rust (new ABI) */
+            if (!strncmp(sym, "_RNv", 4)) {
+                res = rust_demangle(sym, DMGL_ANSI);
+                if (res)
+                    return res;
+            }
+        default:
+            return strdup(sym);
+    }
+}
+
 void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module) {
     if (st->size == st->capacity) {
         st->capacity *= SYMBOL_TABLE_GROWTH_FACTOR;
@@ -330,7 +370,7 @@ void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const 
         DEBUG("realloc symbol table to %d\n", st->capacity);
     }
     st->symbols[st->size].addr = addr;
-    st->symbols[st->size].name = strdup(name);
+    st->symbols[st->size].name = auto_demangle(name);
     st->symbols[st->size].module = module ? strdup(module) : NULL;
     st->size++;
 }

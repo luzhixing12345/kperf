@@ -49,7 +49,7 @@ this project need some dependencies
 - binutils-dev: for parsing dwarf info
 
 ```bash
-sudo apt install libbpf-dev libelf-dev clang libz-dev binutils-dev
+sudo apt install libbpf-dev libelf-dev clang libz-dev binutils-dev libiberty-dev
 ```
 
 ```bash

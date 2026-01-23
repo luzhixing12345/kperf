@@ -62,7 +62,7 @@ MULTI_EXE_OBJS 	  	:= $(OBJS-T1) $(OBJS-T2) $(OBJS-T3)
 # ------------------------- #
 #          FLAGS            #
 # ------------------------- #
-CFLAGS 			:= 
+CFLAGS 			:= -g
 INCLUDE_PATH 	:= 
 LDFLAGS 		:= 
 DEFINES     	:= # -DDEBUG
@@ -262,10 +262,19 @@ EXECUTABLES = $(OBJS:.o=)
 	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@
 	$(Q) $(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
 
-each: $(EXECUTABLES)
+each: $(EXECUTABLES) base/cpp
 	$(MAKE) -C module
 .PHONY: each
 
+OBJS += base/cpp.o
+EXECUTABLES += base/cpp
+DEPS += base/.cpp.o.d
+base/cpp: base/cpp.o
+	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@
+	$(Q) g++ -g $< $(LDFLAGS) -o $@
+base/cpp.o: base/cpp.cpp
+	$(E) "  CC      %s\n" $@
+	$(Q) g++ -c -g $< -o $@
 
 cpu/p99: cpu/p99.o
 	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@

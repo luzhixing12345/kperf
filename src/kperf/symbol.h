@@ -20,6 +20,13 @@ struct symbol_table {
     int module_count;
 };
 
+enum language_type {
+    LANGUAGE_C = 0,
+    LANGUAGE_CPP,
+    LANGUAGE_RUST,
+    LANGUAGE_UNKNOWN,
+};
+
 void init_symbol_table(struct symbol_table *st);
 void free_symbol_table(struct symbol_table *st);
 void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module);

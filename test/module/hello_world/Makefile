@@ -11,4 +11,4 @@ userspace.o: userspace.c
 
 clean:
 	make -C $(KDIR) M=$(PWD) clean
-	rm userspace
+	rm -f userspace

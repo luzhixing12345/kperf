@@ -10,10 +10,16 @@
 #include <string.h>
 #include <errno.h>
 #include <bfd.h>
+#include <libiberty/demangle.h>
+#include <libdwarf/libdwarf.h>
+#include <dwarf.h>
 #include <libgen.h>
 #include "log.h"
 #include "parse_elf.h"
 #include "utils.h"
+#include "symbol.h"
+
+extern enum language_type language;
 
 /* ------------------ read .gnu_debuglink ------------------ */
 int read_gnu_debuglink(Elf *elf, char *name, size_t name_sz, uint32_t *crc) {
@@ -90,6 +96,92 @@ int read_build_id(Elf *elf, unsigned char *id, size_t *id_len) {
     return -1;
 }
 
+static const char *lang_to_str(Dwarf_Unsigned lang) {
+    switch (lang) {
+        case DW_LANG_C:
+            return "C";
+        case DW_LANG_C89:
+            return "C89";
+        case DW_LANG_C99:
+            return "C99";
+        case DW_LANG_C11:
+            return "C11";
+        case DW_LANG_C_plus_plus:
+            return "C++";
+        case DW_LANG_C_plus_plus_11:
+            return "C++11";
+        case DW_LANG_C_plus_plus_14:
+            return "C++14";
+        case DW_LANG_Rust:
+            return "Rust";
+        default:
+            return "Unknown";
+    }
+}
+
+static void set_language_type(Dwarf_Unsigned lang) {
+    switch (lang) {
+        case DW_LANG_C:
+        case DW_LANG_C89:
+        case DW_LANG_C99:
+        case DW_LANG_C11:
+            language = LANGUAGE_C;
+            break;
+        case DW_LANG_C_plus_plus:
+        case DW_LANG_C_plus_plus_11:
+        case DW_LANG_C_plus_plus_14:
+            language = LANGUAGE_CPP;
+            break;
+        case DW_LANG_Rust:
+            language = LANGUAGE_RUST;
+            break;
+        default:
+            language = LANGUAGE_UNKNOWN;
+            break;
+    }
+}
+
+static void get_dwarf_language_type(int fd) {
+    Dwarf_Debug dbg;
+    Dwarf_Error err;
+
+    if (dwarf_init(fd, DW_DLC_READ, NULL, NULL, &dbg, &err) != DW_DLV_OK) {
+        ERR("dwarf_init failed\n");
+        return;
+    }
+
+    Dwarf_Unsigned cu_header_length;
+    Dwarf_Half version_stamp;
+    Dwarf_Unsigned abbrev_offset;
+    Dwarf_Half address_size;
+    Dwarf_Unsigned next_cu_header;
+
+    while (dwarf_next_cu_header(
+               dbg, &cu_header_length, &version_stamp, &abbrev_offset, &address_size, &next_cu_header, &err) ==
+           DW_DLV_OK) {
+        Dwarf_Die cu_die;
+
+        if (dwarf_siblingof(dbg, NULL, &cu_die, &err) != DW_DLV_OK) {
+            continue;
+        }
+
+        Dwarf_Attribute attr;
+        if (dwarf_attr(cu_die, DW_AT_language, &attr, &err) == DW_DLV_OK) {
+            Dwarf_Unsigned lang;
+            if (dwarf_formudata(attr, &lang, &err) == DW_DLV_OK) {
+                DEBUG("CU language: %s (%llu)\n", lang_to_str(lang), (unsigned long long)lang);
+                set_language_type(lang);
+            }
+        } else {
+            DEBUG("CU language: <not specified>\n");
+        }
+
+        dwarf_dealloc(dbg, cu_die, DW_DLA_DIE);
+    }
+
+    dwarf_finish(dbg, &err);
+}
+
 int load_dwarf_info(struct symbol_table *st, char *elf_path, uint64_t map_start, uint64_t map_offset,
                     char *module_name) {
     /* First check whether ELF contains DWARF sections (.debug_info or .debug_line)
@@ -125,11 +217,23 @@ int load_dwarf_info(struct symbol_table *st, char *elf_path, uint64_t map_start,
         }
     }
     elf_end(e);
-    close(fd);
+
     if (!has_dwarf) {
         DEBUG("no DWARF sections in %s\n", elf_path);
+        // if no DWARF sections, try to get language type from build ID
+        // do not get language type from ELF if DWARF is not present
+        language = LANGUAGE_UNKNOWN;
+        close(fd);
         return -1;
     }
+
+    if (language == -1) {
+        get_dwarf_language_type(fd);
+        if (language == -1) {
+            language = LANGUAGE_UNKNOWN;
+        }
+    }
+    close(fd);
 
     /* Try using libbfd to get file/line info from DWARF if available */
     bfd_init();
