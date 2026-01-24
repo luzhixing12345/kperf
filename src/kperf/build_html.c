@@ -70,11 +70,15 @@ struct node *node_add(struct node *cur, const char *name, uint32_t pid, uint32_t
 void node_free(struct node *n) {
     if (!n)
         return;
-    for (struct child *c = n->children; c; c = c->next) {
+    struct child *c = n->children;
+    while (c) {
+        struct child *next = c->next;
         node_free(c->n);
         free(c->name);
         free(c);
+        c = next;
     }
+
     free(n);
 }
 
