@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo "Successfully installed kperf, try to use "sudo kperf --help" to see the usage."

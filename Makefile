@@ -294,6 +294,14 @@ DEPS	+= $(foreach obj,$(BPF_OBJS),\
 		$(subst $(comma),_,$(dir $(obj)).$(notdir $(obj)).d))
 CLANG   = clang
 
+# Generate vmlinux.h if it doesn't exist
+# src/bpf/vmlinux.h:
+# 	$(Q) if command -v bpftool >/dev/null 2>&1; then \
+# 		bpftool btf dump file /sys/kernel/btf/vmlinux format c > $@; \
+# 	else \
+# 		touch $@; \
+# 	fi
+
 $(BPF_OBJS):
 %.bpf.o: %.bpf.c
 	$(E) "  CLANG   %s\n" $@
@@ -320,8 +328,10 @@ endif
 
 install: all
 	$(E) "  INSTALL\n"
-	$(Q) $(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(bindir_SQ)' 
-	$(Q) $(INSTALL) $(PROGRAM) '$(DESTDIR_SQ)$(bindir_SQ)' 
+	$(Q) $(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(bindir_SQ)'
+	$(Q) $(INSTALL) -d -m 755 '$(DESTDIR_SQ)/etc/kperf'
+	$(Q) $(INSTALL) -m 755 $(PROGRAM) '$(DESTDIR_SQ)$(bindir_SQ)'
+	$(Q) $(INSTALL) -m 644 assets/* '$(DESTDIR_SQ)/etc/kperf/'
 .PHONY: install
 
 test:
@@ -344,10 +354,8 @@ clean:
 	$(Q) rm -f $(BPF_OBJS)
 
 release:
-	$(MAKE) -j4
-	mkdir $(RELEASE)
-	@cp $(EXE) $(RELEASE)/ 
-	tar -cvf $(TARGET).tar $(RELEASE)/
+	$(MAKE) clean
+	$(MAKE) default CFLAGS="$(CFLAGS) -DRELEASE" LDFLAGS="-static $(LDFLAGS)"
 
 # 输出配置信息, 包括 CFLAGS, LDFLAGS, LIBS
 config:

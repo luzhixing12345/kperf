@@ -1,0 +1,19 @@
+Source: kperf
+Section: utils
+Priority: optional
+Maintainer: kamilu <luzhixing12345@163.com>
+Build-Depends: debhelper-compat (=13), libbpf-dev, libelf-dev, libz-dev, binutils-dev, libiberty-dev, clang, libdw-dev, libdwarf-dev, libbfd-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/luzhixing12345/kperf
+Rules-Requires-Root: no
+Vcs-Git: https://github.com/luzhixing12345/kperf.git
+Vcs-Browser: https://github.com/luzhixing12345/kperf
+
+Package: kperf
+Architecture: any
+Depends: ${misc:Depends}
+Description: Simplified eBPF-based performance profiler
+ kperf is a simplified version of perf, a eBPF-based profiler for Linux
+ kernel and user space programs. It provides additional network, disk,
+ I/O, and lock statistics through eBPF, and offers a user-friendly web
+ interface for visualization.

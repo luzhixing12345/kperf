@@ -195,10 +195,10 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
     return root;
 }
 
-void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
+int build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
     if (!pst || pst->size == 0) {
         ERR("no samples to build html\n");
-        return;
+        return -1;
     }
 
     /* build tree */
@@ -210,7 +210,7 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
     FILE *ms = open_memstream(&tree_buf, &tree_size);
     if (!ms) {
         perror("open_memstream");
-        return;
+        return -1;
     }
 
     /* printing: collect children into array and sort by count */
@@ -221,11 +221,11 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
     fclose(ms);
 
     /* read template assets/index.html */
-    const char *tpl_path = "assets/index.html";
+    const char *tpl_path = KPERF_ETC_TPL_PATH "/index.html";  // for local development
     FILE *tf = fopen(tpl_path, "r");
     if (!tf) {
         ERR("failed to open %s: %s\n", tpl_path, strerror(errno));
-        return;
+        return -1;
     }
 
     fseek(tf, 0, SEEK_END);
@@ -236,14 +236,14 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
         perror("malloc tpl");
         fclose(tf);
         free(tree_buf);
-        return;
+        return -1;
     }
     if (fread(tpl, 1, tpl_len, tf) != (size_t)tpl_len) {
         perror("fread tpl");
         fclose(tf);
         free(tpl);
         free(tree_buf);
-        return;
+        return -1;
     }
     tpl[tpl_len] = '\0';
     fclose(tf);
@@ -267,7 +267,7 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
         perror("fopen output report");
         free(tpl);
         free(tree_buf);
-        return;
+        return -1;
     }
 
     if (pos) {
@@ -290,7 +290,8 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
     node_free(root);
 
     /* copy js/css/svg to kperf-result */
-    char *assets[] = {"assets/index.js", "assets/index.css", "assets/favicon.svg"};
+    char *assets[] = {
+        KPERF_ETC_TPL_PATH "/index.js", KPERF_ETC_TPL_PATH "/index.css", KPERF_ETC_TPL_PATH "/favicon.svg"};
     for (int i = 0; i < sizeof(assets) / sizeof(*assets); i++) {
         char *src = assets[i];
         char dst[PATH_MAX];
@@ -299,4 +300,5 @@ void build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct 
             WARNING("failed to copy %s to %s: %s\n", src, dst, strerror(errno));
         }
     }
+    return 0;
 }

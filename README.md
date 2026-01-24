@@ -1,6 +1,6 @@
 # kperf
 
-kperf is a ebpf-based profiler for linux kernel and user space program, with a more user-friendly web interface.
+kperf is a simplified version of perf, a eBPF-based profiler for Linux kernel and user space programs. It provides additional network, disk, I/O, and lock statistics through eBPF, and offers a user-friendly web interface for visualization.
 
 > [!NOTE]
 > this project is not finished yet
@@ -49,7 +49,7 @@ this project need some dependencies
 - binutils-dev: for parsing dwarf info
 
 ```bash
-sudo apt install libbpf-dev libelf-dev clang libz-dev binutils-dev libiberty-dev
+sudo apt install libbpf-dev libelf-dev clang libz-dev binutils-dev libiberty-dev libdwarf-dev
 ```
 
 ```bash
@@ -72,3 +72,4 @@ sudo python3 -m unittest discover -s test
 - [cpplinks](https://github.com/MattPD/cpplinks)
 - [cpplinks performance.tools](https://github.com/MattPD/cpplinks/blob/master/performance.tools.md)
 - [推荐适用于 Linux 的 C++ 工具?(分析器、静态分析等)?](https://www.reddit.com/r/cpp/comments/7kurp6/comment/drhpyfh/?utm_source=share)
+- [深入浅出Debian包制作：从原理到实践深入浅出Debian包制作：从原理到实践](https://juejin.cn/post/7591304659131383846)

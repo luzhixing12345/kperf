@@ -64,7 +64,7 @@ MULTI_EXE_OBJS 	  	:= $(OBJS-T1) $(OBJS-T2) $(OBJS-T3)
 # ------------------------- #
 CFLAGS 			:= -g
 INCLUDE_PATH 	:= 
-LDFLAGS 		:= 
+LDFLAGS 		:= -lm
 DEFINES     	:= # -DDEBUG
 CFLAGS          += $(INCLUDE_PATH)
 

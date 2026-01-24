@@ -211,7 +211,10 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
     if (!enable_tui) {
-        build_html(pst, ust, kst);
+        rc = build_html(pst, ust, kst);
+        if (rc < 0) {
+            goto cleanup;
+        }
         start_http_server(http_port);
     } else {
         build_tui(pst, ust, kst);

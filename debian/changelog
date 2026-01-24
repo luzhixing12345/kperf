@@ -1,0 +1,5 @@
+kperf (0.1.0-2) noble; urgency=medium
+
+  * Fix build dependencies: add libdwarf-dev and libbfd-dev
+
+ -- kamilu <luzhixing12345@163.com>  Fri, 23 Jan 2026 23:05:00 +0800

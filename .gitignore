@@ -232,3 +232,5 @@ a.cpp
 b
 b.c
 a.py
+kperf-package
+*.deb

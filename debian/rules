@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+
+# See DEBHELPER: https://www.debian.org/doc/manuals/debhelper-docs/
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) release
+
+override_dh_auto_clean:
+	$(MAKE) clean
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/kperf bindir=/usr/bin
+
+override_dh_installdocs:
+	@echo "Skipping dh_installdocs"
+
+override_dh_installchangelogs:
+	@echo "Skipping dh_installchangelogs"
+
+override_dh_shlibdeps:
+	@echo "Skipping dh_shlibdeps for static build"
