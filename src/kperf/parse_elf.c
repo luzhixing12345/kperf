@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <libdwarf/libdwarf.h>
 #include <libiberty/demangle.h>
-#include <dwarf.h>  
+#include <dwarf.h>
 #include <libgen.h>
 #include "log.h"
 #include "parse_elf.h"
@@ -200,7 +200,6 @@ int has_dwarf_info(Elf *e) {
             }
         }
     }
-    elf_end(e);
     return has_dwarf;
 
     // /* Try using libbfd to get file/line info from DWARF if available */
@@ -322,6 +321,18 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
         return 1;
     }
 
+    /*
+     * check if the elf file has dwarf info, if it does
+     * get the language type from dwarf info for better symbol name
+     */
+    if (language == -1 && has_dwarf_info(e)) {
+        Dwarf_Unsigned lang = get_dwarf_language_type(fd);
+        if (lang != -1) {
+            language = get_language_type_enum(lang);
+            DEBUG("set language type to %s\n", lang_to_str(lang));
+        }
+    }
+
     Elf_Scn *scn = NULL;
     GElf_Shdr shdr;
 
@@ -352,16 +363,6 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
 
             uint64_t runtime_addr = map_start + sym.st_value - map_offset;
             add_symbol(st, name, runtime_addr, module_name);
-        }
-    }
-
-    if (language == -1 && has_dwarf_info(e)) {
-        // if no DWARF sections, try to get language type from build ID
-        // do not get language type from ELF if DWARF is not present
-        Dwarf_Unsigned lang = get_dwarf_language_type(fd);
-        if (lang != -1) {
-            language = get_language_type_enum(lang);
-            DEBUG("set language type to %s\n", lang_to_str(lang));
         }
     }
 
