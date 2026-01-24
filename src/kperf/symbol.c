@@ -16,6 +16,7 @@
 #include <dwarf.h>
 #include <elf.h>
 #include <gelf.h>
+#include <libgen.h>
 #include "log.h"
 #include "symbol.h"
 #include "utils.h"
@@ -224,7 +225,7 @@ int load_user_symbols(struct symbol_table *st, int pid) {
             /* skip not elf file, like [stack] [vsdo] */
             if (fname[0] != '/')
                 continue;
-            load_elf_symbol(st, fname, start, offset);
+            load_elf_symbol(st, fname, start, offset, basename(fname));
         }
     }
     fclose(fp);

@@ -46,10 +46,12 @@ this project need some dependencies
 - clang & libbpf-dev: for compiling ebpf code
 - libelf-dev: for parsing elf file
 - libz-dev: for compressing data
-- binutils-dev: for parsing dwarf info
+- libiberty-dev: for name demangling for cpp/rust elf file
+- libdw-dev: for parsing dwarf
+- libdwarf-dev: for parsing dwarf
 
 ```bash
-sudo apt install libbpf-dev libelf-dev clang libz-dev binutils-dev libiberty-dev libdw-dev libdwarf-dev linux-tools-common
+sudo apt install libbpf-dev libelf-dev clang libz-dev libiberty-dev libdw-dev libdwarf-dev
 ```
 
 ```bash
@@ -62,6 +64,19 @@ make
 make
 make test
 sudo python3 -m unittest discover -s test
+```
+
+## Build deb
+
+```bash
+./scripst/build.sh
+```
+
+publish to launchpad.net
+
+```bash
+debuild -S -sa
+dput ppa:kamilu/kperf <source.changes>
 ```
 
 ## reference

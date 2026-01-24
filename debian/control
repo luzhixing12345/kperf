@@ -2,7 +2,7 @@ Source: kperf
 Section: utils
 Priority: optional
 Maintainer: kamilu <luzhixing12345@163.com>
-Build-Depends: debhelper-compat (=13), libbpf-dev, libelf-dev, libz-dev, binutils-dev, libiberty-dev, clang, libdw-dev, libdwarf-dev, libbfd-dev, linux-tools-common
+Build-Depends: debhelper-compat (=13), libbpf-dev, libelf-dev, libz-dev, libiberty-dev, clang, libdw-dev, libdwarf-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/luzhixing12345/kperf
 Rules-Requires-Root: no
