@@ -51,7 +51,7 @@ this project need some dependencies
 - libdwarf-dev: for parsing dwarf
 
 ```bash
-sudo apt install libbpf-dev libelf-dev clang libz-dev libiberty-dev libdw-dev libdwarf-dev
+sudo apt install libbpf-dev libelf-dev clang libz-dev libiberty-dev libdw-dev libdwarf-dev libzstd-dev
 ```
 
 ```bash
@@ -78,6 +78,8 @@ publish to launchpad.net
 debuild -S -sa
 dput ppa:kamilu/kperf <source.changes>
 ```
+
+see https://launchpad.net/~kamilu/+archive/ubuntu/kperf/+builds?build_state=built
 
 ## reference
 

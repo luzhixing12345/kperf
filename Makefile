@@ -65,7 +65,7 @@ MULTI_EXE_OBJS 	  	:= $(OBJS-T1) $(OBJS-T2) $(OBJS-T3)
 # ------------------------- #
 CFLAGS 			:= -O2
 INCLUDE_PATH 	:= 
-LDFLAGS 		:= -lbpf -ldwarf -liberty -lelf -lz -lztsd -lpthread
+LDFLAGS 		:= -lbpf -ldwarf -liberty -lelf -lz -lzstd -lpthread
 DEFINES     	:= # -DDEBUG
 CFLAGS          += $(INCLUDE_PATH)
 

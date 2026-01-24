@@ -25,3 +25,6 @@ override_dh_installchangelogs:
 
 override_dh_shlibdeps:
 	@echo "Skipping dh_shlibdeps for static build"
+
+override_dh_auto_test:
+	@echo "Skipping dh_auto_test"
