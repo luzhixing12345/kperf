@@ -295,14 +295,14 @@ DEPS	+= $(foreach obj,$(BPF_OBJS),\
 CLANG   = clang
 
 # Generate vmlinux.h if it doesn't exist
-# src/bpf/vmlinux.h:
-# 	$(Q) if command -v bpftool >/dev/null 2>&1; then \
-# 		bpftool btf dump file /sys/kernel/btf/vmlinux format c > $@; \
-# 	else \
-# 		touch $@; \
-# 	fi
+src/bpf/vmlinux.h:
+	$(Q) if command -v bpftool >/dev/null 2>&1; then \
+		bpftool btf dump file /sys/kernel/btf/vmlinux format c > $@; \
+	else \
+		touch $@; \
+	fi
 
-$(BPF_OBJS):
+$(BPF_OBJS): src/bpf/vmlinux.h
 %.bpf.o: %.bpf.c
 	$(E) "  CLANG   %s\n" $@
 	$(Q) $(CLANG) $(c_flags) -g -target bpf -c $< -o $@
