@@ -147,7 +147,10 @@ function createSearchBox() {
             return;
         }
 
-        matches = functionCalls.filter(call => fuzzySearch(value.toLowerCase(), call.toLowerCase())).slice(0, 5);
+        const uniqueCalls = [...new Set(functionCalls)];
+        matches = uniqueCalls
+            .filter(call => fuzzySearch(value.toLowerCase(), call.toLowerCase()))
+            .slice(0, 5);
 
         if (matches.length > 0) {
             autocompleteList.innerHTML = matches.map((match, index) => `<div class="autocomplete-item${index === activeIndex ? ' active' : ''}">${match}</div>`).join('');
@@ -455,12 +458,13 @@ function addPerformanceColors() {
         const text = label.textContent;
         const percentage = parseFloat(text.match(/(\d+\.\d+)%/)?.[1] || 0);
 
-        if (percentage > colorThresholds.high) {
-            label.style.color = '#dc3545'; // 红色，执行时间较长
-        } else if (percentage < colorThresholds.low) {
+        // if (percentage > colorThresholds.high) {
+        //     label.style.color = '#dc3545'; // 红色，执行时间较长
+        // } else 
+        if (percentage < colorThresholds.low) {
             label.style.color = '#6c757d'; // 灰色，执行时间很短
         } else {
-            label.style.color = '#000000'; // 黑色，正常执行时间
+            label.style.color = '#09090b'; // 黑色，正常执行时间
         }
     });
 }
@@ -552,6 +556,14 @@ document.addEventListener('keydown', function (event) {
     // Ctrl + F: 搜索
     if (event.ctrlKey && event.key === 'f') {
         event.preventDefault();
+        const container = document.querySelector('.search-container');
+        if (!container) return;
+        const isVisible = container.classList.contains('visible');
+        if (!isVisible) {
+            container.classList.add('visible');
+            // focus the input when shown
+            setTimeout(() => { input.focus(); }, 0);
+        }
         const input = document.querySelector('.search-input');
         if (input) input.focus();
     }

@@ -127,13 +127,13 @@ body {
 .tree li {
     list-style-type: none;
     position: relative;
-    padding: 5px 0 5px 20px;
+    padding: 5px 0 2px 20px;
 }
 
 .tree_label {
     position: relative;
     display: inline-block;
-    padding: 4px 8px;
+    padding: 1px 8px;
     border-radius: 4px;
     transition: all 0.2s ease;
     cursor: pointer;
@@ -145,7 +145,7 @@ body {
 
 /* Expand/Collapse icons */
 label.tree_label:before {
-    background: #007bff;
+    background: #09090b;
     color: #fff;
     position: absolute;
     left: -18px;
@@ -163,7 +163,7 @@ label.tree_label:before {
 
 :checked~label.tree_label:before {
     content: '–';
-    background: #626161;
+    background: #464646;
     line-height: 13px;
 }
 
@@ -202,7 +202,7 @@ label.tree_label:before {
 }
 
 .marked {
-    background-color: #d4edda;
+    background-color: #d6d8d9;
 }
 
 /* Controls bar */
@@ -238,7 +238,7 @@ label.tree_label:before {
 }
 
 .tab-button.active {
-    background: #007bff;
+    background: #09090b;
     color: #fff;
     border-color: rgba(0, 0, 0, 0.05);
 }
@@ -261,8 +261,8 @@ label.tree_label:before {
 .help-button {
     /* shadcn-ui like icon button */
     padding: 6px;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     background: transparent;
     color: #374151;
     /* neutral-700 */
@@ -352,7 +352,8 @@ label.tree_label:before {
 }
 
 .autocomplete-item {
-    padding: 8px 12px;
+    font-size: 14px;
+    padding: 1px 12px;
     cursor: pointer;
     background-color: #fff;
     border-bottom: 1px solid #ddd;

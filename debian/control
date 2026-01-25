@@ -12,8 +12,4 @@ Vcs-Browser: https://github.com/luzhixing12345/kperf
 Package: kperf
 Architecture: any
 Depends: ${misc:Depends}
-Description: Simplified eBPF-based performance profiler
- kperf is a simplified version of perf, a eBPF-based profiler for Linux
- kernel and user space programs. It provides additional network, disk,
- I/O, and lock statistics through eBPF, and offers a user-friendly web
- interface for visualization.
+Description: simple perf with eBPF and friendly-web interface

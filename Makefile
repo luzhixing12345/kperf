@@ -330,8 +330,10 @@ install: all
 	$(E) "  INSTALL\n"
 	$(Q) $(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(bindir_SQ)'
 	$(Q) $(INSTALL) -d -m 755 '$(DESTDIR_SQ)/etc/kperf'
+	$(Q) $(INSTALL) -d -m 755 '$(DESTDIR_SQ)/usr/share/bash-completion/completions'
 	$(Q) $(INSTALL) -m 755 $(PROGRAM) '$(DESTDIR_SQ)$(bindir_SQ)'
 	$(Q) $(INSTALL) -m 644 assets/* '$(DESTDIR_SQ)/etc/kperf/'
+	$(Q) $(INSTALL) -m 644 kperf-completion.bash '$(DESTDIR_SQ)/usr/share/bash-completion/completions/kperf'
 .PHONY: install
 
 test:

@@ -3,15 +3,6 @@
 
 #define MAX_RUNTIME 5
 
-static void busy_work(void)
-{
-    volatile unsigned long i = 0;
-    for (i = 0; i < 100000000UL; i++) {
-        /* prevent optimization */
-        asm volatile("" ::: "memory");
-    }
-}
-
 static void busy_no_work(void)
 {
     volatile unsigned long i = 0;
@@ -19,6 +10,20 @@ static void busy_no_work(void)
         /* prevent optimization */
         asm volatile("" ::: "memory");
     }
+}
+
+static void another_work() {
+    busy_no_work();
+}
+
+static void busy_work(void)
+{
+    volatile unsigned long i = 0;
+    for (i = 0; i < 100000000UL; i++) {
+        /* prevent optimization */
+        asm volatile("" ::: "memory");
+    }
+    another_work();
 }
 
 
