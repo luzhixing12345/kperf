@@ -8,19 +8,15 @@
 #define MIN_SHOW_PERCENT 1
 
 /* tree node */
-struct child {
-    char *name;
-    struct node *n;
-    struct child *next;
-    uint32_t pid;
-    uint32_t tid;
-};
 struct node {
     long count;
-    struct child *children;
+    char *name;
     uint32_t pid;
     uint32_t tid;
     uint32_t node_id;
+    uint64_t retback_addr;
+    struct node *children;
+    int nr_children;
 };
 
 struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst);

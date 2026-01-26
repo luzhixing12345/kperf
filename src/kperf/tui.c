@@ -9,24 +9,13 @@ int print_node_tui(struct node *n, int k) {
     if (!n)
         return k;
 
-    /* count children */
-    int cnt = 0;
-    for (struct child *c = n->children; c; c = c->next) cnt++;
+    qsort(n->children, n->nr_children, sizeof(struct node), cmp_child);
 
-    if (cnt == 0)
-        return k;
-
-    /* collect children */
-    struct child **arr = malloc(sizeof(struct child *) * cnt);
-    int idx = 0;
-    for (struct child *c = n->children; c; c = c->next) arr[idx++] = c;
-    qsort(arr, cnt, sizeof(struct child *), cmp_child);
-
-    for (int i = 0; i < cnt; i++) {
-        struct child *c = arr[i];
-        int is_last = (i == cnt - 1);
+    for (int i = 0; i < n->nr_children; i++) {
+        struct node *c = &n->children[i];
+        int is_last = (i == n->nr_children - 1);
         /* 当前分支符号 */
-        int count = c->n->count;
+        int count = c->count;
         double pct = 100.0 * count / (n->count ? n->count : 1);
         // if (pct < MIN_SHOW_PERCENT) {
         //     continue;
@@ -46,9 +35,9 @@ int print_node_tui(struct node *n, int k) {
             printf("%s── %s", is_last ? "└" : "├", c->name);
 
         printf(" (%.1f%% %d/%ld)", pct, count, n->count);
-        
-        if (k == 0 && c->n->pid != c->n->tid) {
-            printf("[pid: %d, tid: %d]\n", c->n->pid, c->n->tid);
+
+        if (k == 0 && c->pid != c->tid) {
+            printf("[pid: %d, tid: %d]\n", c->pid, c->tid);
         } else {
             printf("\n");
         }
@@ -56,10 +45,9 @@ int print_node_tui(struct node *n, int k) {
         /* 记录这一层是否还有兄弟 */
         prefix[k] = !is_last;
 
-        print_node_tui(c->n, k + 1);
+        print_node_tui(c, k + 1);
     }
 
-    free(arr);
     return k;
 }
 
@@ -67,4 +55,5 @@ void build_tui(struct perf_sample_table *pst, struct symbol_table *ust, struct s
     struct node *root = build_tree(pst, ust, kst);
     print_node_tui(root, 0);
     node_free(root);
+    free(root);
 }

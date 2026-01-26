@@ -33,7 +33,10 @@ static void run_5s_loop(void)
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     while (1) {
+        busy_no_work();
+        busy_no_work();
         busy_work();
+        busy_no_work();
         busy_no_work();
         clock_gettime(CLOCK_MONOTONIC, &now);
         if ((now.tv_sec - start.tv_sec) >= MAX_RUNTIME)
