@@ -456,15 +456,24 @@ function hideHelp() {
 function addPerformanceColors() {
     labels.forEach(label => {
         const text = label.textContent;
-        const percentage = parseFloat(text.match(/(\d+\.\d+)%/)?.[1] || 0);
+        const match = text.match(/\(([\d.]+)%\s+(\d+)\/(\d+)\)/);
 
-        // if (percentage > colorThresholds.high) {
-        //     label.style.color = '#dc3545'; // 红色，执行时间较长
-        // } else 
-        if (percentage < colorThresholds.low) {
-            label.style.color = '#6c757d'; // 灰色，执行时间很短
+        if (match) {
+            const percentage = parseFloat(match[1]);
+            const count = parseInt(match[2], 10);
+            const total = parseInt(match[3], 10);
+            if (percentage < colorThresholds.low || count == 1 || total < 5) {
+                label.style.color = '#6c757d'; // 灰色，执行时间很短
+                // 折叠
+                input = label.parentElement.querySelector('input[type="checkbox"]');
+                if (input) {
+                    input.checked = false;
+                }
+            } else {
+                label.style.color = '#09090b'; // 黑色，正常执行时间
+            }
         } else {
-            label.style.color = '#09090b'; // 黑色，正常执行时间
+            return;
         }
     });
 }
@@ -536,11 +545,9 @@ document.addEventListener('DOMContentLoaded', () => {
     createSearchBox();
     createTagsPanel();
     createHelpModal();
-    addPerformanceColors();
-    // 确保初始状态为折叠
-    // ensureCollapsed();
     // 展开所有
     expandAll();
+    addPerformanceColors(); // 对频率较低的函数标记为灰色并折叠
 
     // 点击空白处关闭帮助模态框
     window.addEventListener('click', (e) => {

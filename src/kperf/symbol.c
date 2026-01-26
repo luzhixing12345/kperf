@@ -185,6 +185,10 @@ static int symbol_cmp(const void *a, const void *b) {
 }
 
 int load_user_symbols(struct symbol_table *st, int pid) {
+    if (st->size != 0) {
+        WARNING("already get user symbols\n");
+        return 0;
+    }
     /* First pass: load existing r-xp mappings (executable and any already-loaded libs) */
     char maps_path[256];
     snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);

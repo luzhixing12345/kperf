@@ -46,7 +46,7 @@ void int_exit(int signo) {
     if (is_server_running) {
         exit(0);
     } else {
-        kill(g_pid, SIGKILL);
+        kill(g_pid, SIGTERM);
     }
 }
 
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 
     if (enable_debug) {
         log_set_level(LOG_DEBUG);
-        enable_tui = 1;
+        // enable_tui = 1;
     }
 
     if (only_launch_http_server) {
@@ -187,11 +187,13 @@ int main(int argc, char *argv[]) {
                     if (event == PTRACE_EVENT_EXIT) {
                         unsigned long exit_code;
                         ptrace(PTRACE_GETEVENTMSG, g_pid, 0, &exit_code);
-                        load_user_symbols(ust, g_pid);
                         DEBUG("tracee about to exit, code=%lu\n", exit_code);
+                        load_user_symbols(ust, g_pid);
 
                         ptrace(PTRACE_CONT, g_pid, 0, 0);
                         break;
+                    } else {
+                        ERR("unknown event %d\n", event);
                     }
                 }
 

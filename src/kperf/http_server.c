@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include "http_server.h"
 #include "config.h"
 #include "log.h"
@@ -16,7 +17,7 @@
 #include "version.h"
 
 #define PORT     9001
-#define BUF_SIZE 4096
+#define BUF_SIZE 40960
 
 int is_server_running = 0;
 
@@ -134,6 +135,7 @@ int start_http_server(int port) {
     int server_fd, client_fd;
     struct sockaddr_in addr;
     char buf[BUF_SIZE];
+    signal(SIGPIPE, SIG_IGN);
 
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
@@ -250,8 +252,6 @@ int start_http_server(int port) {
 
         close(fd);
         close(client_fd);
-        // TODO: do not close client fd immediately, because user may refresh the page
-        // it will use the same fd to send request
     }
 
     close(server_fd);

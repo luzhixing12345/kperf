@@ -10,8 +10,12 @@ void handler(int sig) {
 int main(int argc, char **argv) {
     signal(SIGINT, handler);
     signal(SIGUSR1, handler);
+    signal(SIGTERM, handler);
     printf("Enter signal\n");
     raise(SIGINT);
     raise(SIGUSR1);
+    while (1) {
+        
+    }
     return 0;
 }
