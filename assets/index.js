@@ -21,19 +21,66 @@ const functionCalls = contentArray.map(item => {
     return match ? match[0].trim() : "";
 });
 
-// 模糊搜索函数
-function fuzzySearch(pattern, str) {
+// 模糊搜索函数 - 返回匹配分数和匹配位置
+// https://github.com/bevacqua/fuzzysearch
+// https://github.com/krisypal/fuse.js
+// 
+// - 每个匹配字符基础分 100 分
+// - 连续匹配额外加分（递增）
+// - 开头匹配加 50 分
+// - 单词边界匹配加 30 分（驼峰/下划线）
+// - 字符串越短分数越高
+// - 匹配位置越靠前分数越高
+function fuzzyMatch(pattern, str) {
     pattern = pattern.toLowerCase();
     str = str.toLowerCase();
+
+    if (pattern.length === 0) return { score: 1, matches: [] };
+
     let patternIdx = 0;
     let strIdx = 0;
+    let score = 0;
+    let consecutiveBonus = 0;
+    let matches = [];
+
     while (patternIdx < pattern.length && strIdx < str.length) {
         if (pattern[patternIdx] === str[strIdx]) {
+            score += 100;
+            consecutiveBonus += 10;
+            score += consecutiveBonus;
+
+            if (strIdx === 0) score += 50;
+
+            if (strIdx === 0 || str[strIdx - 1] === '_' ||
+                (strIdx > 0 && str[strIdx] >= 'a' && str[strIdx] <= 'z' && str[strIdx - 1] >= 'A' && str[strIdx - 1] <= 'Z')) {
+                score += 30;
+            }
+
+            matches.push(strIdx);
             patternIdx++;
+            strIdx++;
+        } else {
+            consecutiveBonus = 0;
+            strIdx++;
         }
-        strIdx++;
     }
-    return patternIdx === pattern.length;
+
+    if (patternIdx < pattern.length) {
+        return { score: 0, matches: [] };
+    }
+
+    score -= str.length * 2;
+
+    if (matches.length > 0) {
+        score -= matches[0] * 5;
+    }
+
+    return { score, matches };
+}
+
+function fuzzySearch(pattern, str) {
+    const result = fuzzyMatch(pattern, str);
+    return result.score > 0;
 }
 
 // 创建控制栏
@@ -77,6 +124,26 @@ function createSearchBox() {
     let activeIndex = -1;
     let matches = [];
 
+    function highlightMatch(text, query) {
+        let result = '';
+        let textIdx = 0;
+        let queryIdx = 0;
+        const lowerText = text.toLowerCase();
+        const lowerQuery = query.toLowerCase();
+
+        while (textIdx < text.length && queryIdx < query.length) {
+            if (lowerText[textIdx] === lowerQuery[queryIdx]) {
+                result += `<strong>${text[textIdx]}</strong>`;
+                queryIdx++;
+            } else {
+                result += text[textIdx];
+            }
+            textIdx++;
+        }
+        result += text.slice(textIdx);
+        return result;
+    }
+
     function updateAutocomplete(value) {
         if (!value) {
             autocompleteList.style.display = 'none';
@@ -86,12 +153,16 @@ function createSearchBox() {
         }
 
         const uniqueCalls = [...new Set(functionCalls)];
-        matches = uniqueCalls
-            .filter(call => fuzzySearch(value.toLowerCase(), call.toLowerCase()))
+        const results = uniqueCalls
+            .map(call => ({ call, ...fuzzyMatch(value.toLowerCase(), call.toLowerCase()) }))
+            .filter(r => r.score > 0)
+            .sort((a, b) => b.score - a.score)
             .slice(0, 5);
 
+        matches = results.map(r => r.call);
+
         if (matches.length > 0) {
-            autocompleteList.innerHTML = matches.map((match, index) => `<div class="autocomplete-item${index === activeIndex ? ' active' : ''}">${match}</div>`).join('');
+            autocompleteList.innerHTML = matches.map((match, index) => `<div class="autocomplete-item${index === activeIndex ? ' active' : ''}">${highlightMatch(match, value)}</div>`).join('');
             autocompleteList.style.display = 'block';
         } else {
             autocompleteList.style.display = 'none';
