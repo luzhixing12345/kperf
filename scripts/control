@@ -1,0 +1,7 @@
+Package: kperf
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: luzhixing12345@163.com
+Description: a simple perf with eBPF and friendly-web interface
