@@ -313,6 +313,7 @@ int build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct s
     }
 
     fclose(of);
+    chmod(index_path, 0666);
     free(tpl);
     free(tree_buf);
     node_free(root);
@@ -327,6 +328,8 @@ int build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct s
         snprintf(dst, sizeof(dst), "%s/%s", KPERF_RESULTS_PATH, basename(src));
         if (copy_file(src, dst) < 0) {
             WARNING("failed to copy %s to %s: %s\n", src, dst, strerror(errno));
+        } else {
+            chmod(dst, 0666);
         }
     }
     return 0;

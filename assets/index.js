@@ -2,37 +2,6 @@ function isNumber(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);
 }
 
-// 固定英文文本（只保留英文）
-const STR = {
-    expandAll: 'Expand All',
-    collapseAll: 'Collapse All',
-    help: 'Help',
-    searchPlaceholder: 'Enter search keywords...',
-    search: 'Search',
-    clear: 'Clear',
-    helpTitle: 'Help',
-    features: 'Features',
-    feature1: 'Right-click function names to mark/unmark',
-    feature2: 'Marked functions are shown in the right panel, click to locate',
-    feature3: 'Search supports fuzzy matching and auto-completion',
-    colorSettings: 'Color Settings',
-    highThresholdLabel: 'High ratio threshold (red):',
-    lowThresholdLabel: 'Low ratio threshold (gray):',
-    applySettings: 'Apply Settings',
-    highColorLegend: 'High ratio (red) - greater than',
-    normalColorLegend: 'Normal ratio (black) -',
-    lowColorLegend: 'Low ratio (gray) - less than',
-    to: 'to',
-    markedFunctions: 'Marked Functions',
-    noMarks: 'No marks'
-};
-
-// 颜色阈值配置
-let colorThresholds = {
-    high: 80,  // 高占比阈值（红色）
-    low: 5     // 低占比阈值（灰色）
-};
-
 function setFontSize(el) {
     var fontSize = el.val();
 
@@ -43,28 +12,6 @@ function setFontSize(el) {
         $('body').css({ fontSize: '1em' });
     }
 }
-
-// $(function() {
-//   $('#fontSize')
-//     .bind('change', function(){ setFontSize($(this)); })
-//     .bind('keyup', function(e){
-//       if (e.keyCode == 27) {
-//         $(this).val('1');
-//         $('body').css({ fontSize: '1em' });  
-//       } else {
-//         setFontSize($(this));
-//       }
-//     });
-
-//   $(window)
-//     .bind('keyup', function(e){
-//       if (e.keyCode == 27) {
-//         $('#fontSize').val('1');
-//         $('body').css({ fontSize: '1em' });  
-//       }
-//     });
-
-// });
 
 // 获取所有树形节点标签
 const labels = document.querySelectorAll('.tree_label');
@@ -99,9 +46,6 @@ function createControls() {
             switchTab(tab);
         });
     });
-
-    const helpBtn = document.getElementById('helpBtn') || document.querySelector('.help-button');
-    if (helpBtn) helpBtn.addEventListener('click', () => showHelp());
 }
 
 // Switch visible tab content
@@ -116,12 +60,6 @@ function switchTab(name) {
     document.querySelectorAll('.tab-button').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-tab') === name);
     });
-
-    // If switching back to function tab, ensure tree is initialized/collapsed
-    if (name === 'function') {
-        ensureCollapsed();
-        // re-run any layout-sensitive functions if needed
-    }
 }
 
 // 搜索功能增强
@@ -362,97 +300,7 @@ function updateTagsPanel() {
     });
 }
 
-// 创建帮助模态框
-function createHelpModal() {
-    const modal = document.getElementById('helpModal');
-    if (modal) {
-        // bind close and apply handlers
-        const closeBtn = modal.querySelector('.modal-close') || document.getElementById('modalClose');
-        if (closeBtn) closeBtn.addEventListener('click', hideHelp);
-
-        const applyBtn = modal.querySelector('#applyColorBtn');
-        if (applyBtn) applyBtn.addEventListener('click', applyColorSettings);
-
-        return;
-    }
-
-    // fallback: create modal dynamically if not present in HTML
-    const newModal = document.createElement('div');
-    newModal.className = 'modal';
-    newModal.id = 'helpModal';
-    newModal.innerHTML = `
-        <div class="modal-content">
-            <span class="modal-close">&times;</span>
-            <h2>${STR.helpTitle}</h2>
-            <div class="modal-body">
-                <h3>${STR.features}</h3>
-                <ul class="feature-list">
-                    <li>${STR.feature1}</li>
-                    <li>${STR.feature2}</li>
-                    <li>${STR.feature3}</li>
-                </ul>
-                <h3>${STR.colorSettings}</h3>
-                <div class="color-settings">
-                    <div class="setting-group">
-                        <label>${STR.highThresholdLabel}</label>
-                        <input type="number" id="highThreshold" value="${colorThresholds.high}" min="0" max="100" step="1">
-                        <span>%</span>
-                    </div>
-                    <div class="setting-group">
-                        <label>${STR.lowThresholdLabel}</label>
-                        <input type="number" id="lowThreshold" value="${colorThresholds.low}" min="0" max="100" step="1">
-                        <span>%</span>
-                    </div>
-                    <button class="apply-button" id="applyColorBtn">${STR.applySettings}</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(newModal);
-    createHelpModal();
-}
-
-// 应用颜色设置
-function applyColorSettings() {
-    const highThreshold = parseFloat(document.getElementById('highThreshold').value);
-    const lowThreshold = parseFloat(document.getElementById('lowThreshold').value);
-
-    if (isNaN(highThreshold) || isNaN(lowThreshold)) {
-        alert('Please enter valid numbers');
-        return;
-    }
-
-    if (lowThreshold >= highThreshold) {
-        alert('Low threshold must be less than high threshold');
-        return;
-    }
-
-    colorThresholds.high = highThreshold;
-    colorThresholds.low = lowThreshold;
-
-    // 重新应用颜色
-    addPerformanceColors();
-
-    // 更新帮助模态框中的说明文字（若存在静态元素）
-    const legendHigh = document.getElementById('legendHigh');
-    const legendNormal = document.getElementById('legendNormal');
-    const legendLow = document.getElementById('legendLow');
-    if (legendHigh) legendHigh.textContent = `${STR.highColorLegend} ${colorThresholds.high}%`;
-    if (legendNormal) legendNormal.textContent = `${STR.normalColorLegend} ${colorThresholds.low}% ${STR.to} ${colorThresholds.high}%`;
-    if (legendLow) legendLow.textContent = `${STR.lowColorLegend} ${colorThresholds.low}%`;
-
-    alert('Color settings applied');
-}
-
-function showHelp() {
-    document.getElementById('helpModal').style.display = 'block';
-}
-
-function hideHelp() {
-    document.getElementById('helpModal').style.display = 'none';
-}
-
-// 性能指标颜色处理 - 修改这里的逻辑
+// 性能指标颜色处理
 function addPerformanceColors() {
     labels.forEach(label => {
         const text = label.textContent;
@@ -462,7 +310,7 @@ function addPerformanceColors() {
             const percentage = parseFloat(match[1]);
             const count = parseInt(match[2], 10);
             const total = parseInt(match[3], 10);
-            if (percentage < colorThresholds.low || count == 1 || total < 5) {
+            if (percentage < 5 || count == 1 || total < 5) {
                 label.style.color = '#6c757d'; // 灰色，执行时间很短
                 // 折叠
                 input = label.parentElement.querySelector('input[type="checkbox"]');
@@ -503,13 +351,6 @@ function clearHighlight() {
     });
 }
 
-// 确保默认折叠状态
-function ensureCollapsed() {
-    document.querySelectorAll('.tree input[type="checkbox"]').forEach(input => {
-        input.checked = false;
-    });
-}
-
 // 展开全部
 function expandAll() {
     document.querySelectorAll('.tree input[type="checkbox"]').forEach(input => {
@@ -544,18 +385,8 @@ document.addEventListener('DOMContentLoaded', () => {
     createControls();
     createSearchBox();
     createTagsPanel();
-    createHelpModal();
-    // 展开所有
     expandAll();
     addPerformanceColors(); // 对频率较低的函数标记为灰色并折叠
-
-    // 点击空白处关闭帮助模态框
-    window.addEventListener('click', (e) => {
-        const modal = document.getElementById('helpModal');
-        if (e.target === modal) {
-            hideHelp();
-        }
-    });
 });
 
 // 快捷键支持
