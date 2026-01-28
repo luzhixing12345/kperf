@@ -13,10 +13,13 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <libgen.h>
+#include <errno.h>
 #include "argparse.h"
 #include "build_html.h"
 #include "http_server.h"
 #include "log.h"
+#include "config.h"
 #include "symbol.h"
 #include "utils.h"
 #include "cgroup.h"
@@ -104,6 +107,18 @@ int main(int argc, char *argv[]) {
     }
 
     if (only_launch_http_server) {
+        char *assets[] = {
+            KPERF_ETC_TPL_PATH "/index.js", KPERF_ETC_TPL_PATH "/index.css", KPERF_ETC_TPL_PATH "/favicon.svg"};
+        for (int i = 0; i < sizeof(assets) / sizeof(*assets); i++) {
+            char *src = assets[i];
+            char dst[PATH_MAX];
+            snprintf(dst, sizeof(dst), "%s/%s", KPERF_RESULTS_PATH, basename(src));
+            if (copy_file(src, dst) < 0) {
+                WARNING("failed to copy %s to %s: %s\n", src, dst, strerror(errno));
+            } else {
+                chmod(dst, 0666);
+            }
+        }
         start_http_server(http_port);
         free_argparse(&parser);
         return 0;

@@ -640,3 +640,19 @@ label.tree_label:before {
 .modal-content::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* File info tooltip */
+.file-info-tooltip {
+    position: fixed;
+    background: #fff;
+    color: #09090b;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: Monaco, Consolas, 'Courier New', monospace;
+    z-index: 10000;
+    display: none;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border: 1px solid #ddd;
+}

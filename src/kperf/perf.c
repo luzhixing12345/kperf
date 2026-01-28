@@ -47,6 +47,7 @@ void free_perf_sample_table(struct perf_sample_table *table) {
         free(table->samples[i].ips);
     }
     free(table->samples);
+    free(table);
 }
 
 void add_perf_sample(struct perf_sample_table *st, uint32_t pid, uint32_t tid, uint64_t nr, uint64_t *ips) {
@@ -106,6 +107,7 @@ struct perf_fd_ctx {
 
 struct sample_thread_arg {
     int epfd;
+    struct perf_fd_ctx *ctxs;
 };
 
 void *sample_handler(void *arg) {
@@ -114,7 +116,9 @@ void *sample_handler(void *arg) {
     struct epoll_event events[max_events];
 
     for (;;) {
-        if (want_exit) break;
+        if (want_exit)
+            break;
+
         int n = epoll_wait(st->epfd, events, max_events, -1);
         if (n < 0) {
             if (errno == EINTR)
@@ -156,6 +160,7 @@ void *sample_handler(void *arg) {
             // ioctl(ctx->fd, PERF_EVENT_IOC_PAUSE_OUTPUT, 0);
         }
     }
+    free(st->ctxs);
     free(st);
     return NULL;
 }
@@ -259,6 +264,7 @@ int profile_process(int cgroup_fd, int sample_freq) {
         return -1;
     }
     st_argp->epfd = epfd;
+    st_argp->ctxs = ctxs;
     pthread_create(&sample_thread, NULL, sample_handler, st_argp);
     pthread_detach(sample_thread);
 

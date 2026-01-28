@@ -44,7 +44,7 @@ struct symbol *find_symbol(struct symbol_table *st, uint64_t addr) {
 }
 
 /* add name under node and return child node */
-struct node *node_add(struct node *cur, const char *name, uint64_t retback_addr, uint32_t pid, uint32_t tid) {
+struct node *node_add(struct node *cur, struct symbol *sym, uint64_t retback_addr, uint32_t pid, uint32_t tid) {
     if (!cur)
         return NULL;
 
@@ -53,7 +53,7 @@ struct node *node_add(struct node *cur, const char *name, uint64_t retback_addr,
     struct node *c = NULL;
     for (int i = 0; i < cur->nr_children; i++) {
         c = &cur->children[i];
-        if (!strcmp(c->name, name) && c->retback_addr == retback_addr && c->pid == pid && c->tid == tid) {
+        if (!strcmp(c->sym->name, sym->name) && c->retback_addr == retback_addr && c->pid == pid && c->tid == tid) {
             return c;
         }
     }
@@ -62,7 +62,7 @@ struct node *node_add(struct node *cur, const char *name, uint64_t retback_addr,
     cur->children = realloc(cur->children, sizeof(struct node) * cur->nr_children);
     c = &cur->children[cur->nr_children - 1];
     memset(c, 0, sizeof(struct node));
-    c->name = strdup(name);
+    c->sym = sym;
     c->retback_addr = retback_addr;
     c->count = 0;
     c->pid = pid;
@@ -80,7 +80,6 @@ void node_free(struct node *n) {
         node_free(c);
     }
     free(n->children);
-    free(n->name);
 }
 
 /*
@@ -118,7 +117,7 @@ int cmp_child(const void *a, const void *b) {
     if (ca->count < cb->count)
         return 1;
     // then compare name
-    return strcmp(ca->name, cb->name);
+    return strcmp(ca->sym->name, cb->sym->name);
 }
 
 int print_node_html(FILE *fp, struct node *n, int k) {
@@ -136,8 +135,16 @@ int print_node_html(FILE *fp, struct node *n, int k) {
         // }
         fprintf(fp, "<li>\n");
         fprintf(fp, "<input type=\"checkbox\" id=\"c%d\" />\n", c->node_id);
-        fprintf(
-            fp, "<label class=\"tree_label\" for=\"c%d\">%s(%.1f%% %d/%ld)", c->node_id, c->name, pct, count, n->count);
+        fprintf(fp,
+                "<label class=\"tree_label\" for=\"c%d\" text=\"%s %s:%d\">%s(%.1f%% %d/%ld)",
+                c->node_id,
+                c->sym->module ? c->sym->module : "?",
+                c->sym->filename ? c->sym->filename : "?",
+                c->sym->lineno,
+                c->sym->name,
+                pct,
+                count,
+                n->count);
         if (k == 0 && c->pid != c->tid) {
             fprintf(fp, " [pid: %d, tid: %d]</label>\n", c->pid, c->tid);
         } else {
@@ -170,7 +177,7 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
             uint32_t pid = s->pid;
             uint32_t tid = s->tid;
             struct symbol *sym = NULL;
-            const char *name = NULL;
+            // const char *name = NULL;
             uint64_t func_retback_addr = 0;
             if (addr >= 0xfffffffffffffe00) {
                 // https://wolf.nereid.pl/posts/perf-stack-traces/
@@ -181,14 +188,15 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
             if (!sym && ust)
                 sym = find_symbol(ust, addr);
 
-            char hexbuf[64];
+            // char hexbuf[64];
             if (!sym) {
                 WARNING("no name found 0x%lx\n", addr);
-                snprintf(hexbuf, sizeof(hexbuf), "0x%lx", (unsigned long)addr);
-                name = hexbuf;
-                func_retback_addr = 0;
+                // snprintf(hexbuf, sizeof(hexbuf), "0x%lx", (unsigned long)addr);
+                // name = hexbuf;
+                // func_retback_addr = 0;
+                continue;
             } else {
-                name = sym->name;
+                // name = sym->name;
                 // https://wolf.nereid.pl/posts/perf-stack-traces/
                 // j == 0 ip has no meanning, the same as (addr >= 0xfffffffffffffe00)
                 func_retback_addr = j == 1 ? 0 : addr - sym->addr;
@@ -215,7 +223,7 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
              *
              * NOTE: see the result of test/thread/1p1t
              */
-            r = node_add(r, name, retback_addr, pid, tid);
+            r = node_add(r, sym, retback_addr, pid, tid);
             r->count++;
             retback_addr = func_retback_addr;
         }
@@ -253,6 +261,8 @@ int build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct s
     FILE *tf = fopen(tpl_path, "r");
     if (!tf) {
         ERR("failed to open %s: %s\n", tpl_path, strerror(errno));
+        ERR("probably you use `make release` to build kperf, but release mode is only used for debian pkg\n");
+        ERR("please use `make` to build kperf for local development(assets/index.html is what you need)\n");
         return -1;
     }
 

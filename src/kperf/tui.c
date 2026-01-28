@@ -30,17 +30,16 @@ int print_node_tui(struct node *n, int k) {
         }
 
         if (k == 0) {
-            printf("%s", c->name);
+            printf("%s", c->sym->name);
         } else
-            printf("%s── %s", is_last ? "└" : "├", c->name);
+            printf("%s── %s", is_last ? "└" : "├", c->sym->name);
 
         printf(" (%.1f%% %d/%ld)", pct, count, n->count);
-
+        
         if (k == 0 && c->pid != c->tid) {
-            printf("[pid: %d, tid: %d]\n", c->pid, c->tid);
-        } else {
-            printf("\n");
+            printf("[pid: %d, tid: %d]", c->pid, c->tid);
         }
+        printf("\n");
 
         /* 记录这一层是否还有兄弟 */
         prefix[k] = !is_last;

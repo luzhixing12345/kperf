@@ -13,6 +13,7 @@
 #define LOG_LEVEL LOG_DEBUG
 #endif
 
+#ifndef RELEASE
 #define EMERG(...)   __LOG(LOG_EMERG, __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define ALERT(...)   __LOG(LOG_ALERT, __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define CRIT(...)    __LOG(LOG_CRIT, __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
@@ -26,6 +27,16 @@
         __LOG(LOG_ERR, __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
         exit(1);                                                         \
     }
+#else
+#define EMERG(...)   __LOG(LOG_EMERG, NULL, NULL, 0, ##__VA_ARGS__)
+#define ALERT(...)   __LOG(LOG_ALERT, NULL, NULL, 0, ##__VA_ARGS__)
+#define CRIT(...)    __LOG(LOG_CRIT, NULL, NULL, 0, ##__VA_ARGS__)
+#define ERR(...)     __LOG(LOG_ERR, NULL, NULL, 0, ##__VA_ARGS__)
+#define WARNING(...) __LOG(LOG_WARNING, NULL, NULL, 0, ##__VA_ARGS__)
+#define NOTICE(...)  __LOG(LOG_NOTICE, NULL, NULL, 0, ##__VA_ARGS__)
+#define INFO(...)    __LOG(LOG_INFO, NULL, NULL, 0, ##__VA_ARGS__)
+#define DEBUG(...)   __LOG(LOG_DEBUG, NULL, NULL, 0, ##__VA_ARGS__)
+#endif
 
 #define DEFAULT_LOG_FILE  NULL
 

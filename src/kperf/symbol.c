@@ -11,7 +11,6 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <libiberty/demangle.h>
 #include <libdwarf/libdwarf.h>
 #include <dwarf.h>
 #include <elf.h>
@@ -24,156 +23,6 @@
 
 extern int enable_debug;
 
-enum language_type language = -1;
-
-// static uint64_t find_dt_debug_address(pid_t pid, char *exe_path) {
-//     /* Use libelf to parse the ELF file on disk and locate the dynamic segment
-//      * and the index of the DT_DEBUG entry. Then read the DT_DEBUG pointer
-//      * value from the target process memory at the corresponding dynamic entry
-//      * address using a single ptrace peek. This avoids iterating dynamic
-//      * entries in target memory with read_target_mem.
-//      */
-//     if (elf_version(EV_CURRENT) == EV_NONE) {
-//         WARNING("libelf initialization failed\n");
-//         return 0;
-//     }
-
-//     int fd = open(exe_path, O_RDONLY);
-//     if (fd < 0) {
-//         WARNING("open(%s) failed: %s\n", exe_path, strerror(errno));
-//         return 0;
-//     }
-
-//     Elf *e = elf_begin(fd, ELF_C_READ, NULL);
-//     if (!e) {
-//         close(fd);
-//         WARNING("elf_begin failed\n");
-//         return 0;
-//     }
-//     GElf_Ehdr eh;
-//     if (gelf_getehdr(e, &eh) == NULL) {
-//         elf_end(e);
-//         close(fd);
-//         WARNING("gelf_getehdr failed\n");
-//         return 0;
-//     }
-
-//     size_t phnum = 0;
-//     if (elf_getphdrnum(e, &phnum) != 0)
-//         phnum = eh.e_phnum;
-
-//     uint64_t dyn_vaddr = 0, dyn_memsz = 0, dyn_offset = 0;
-//     for (size_t i = 0; i < phnum; i++) {
-//         GElf_Phdr ph;
-//         if (gelf_getphdr(e, i, &ph) == NULL)
-//             break;
-//         if (ph.p_type == PT_DYNAMIC) {
-//             dyn_vaddr = ph.p_vaddr;
-//             dyn_memsz = ph.p_memsz;
-//             dyn_offset = ph.p_offset;
-//             break;
-//         }
-//     }
-
-//     if (!dyn_vaddr || !dyn_memsz) {
-//         elf_end(e);
-//         close(fd);
-//         WARNING("no PT_DYNAMIC found in %s\n", exe_path);
-//         return 0;
-//     }
-
-//     /* Read dynamic entries from file to find the DT_DEBUG index */
-//     uint64_t entry_count = dyn_memsz / sizeof(Elf64_Dyn);
-//     int debug_index = -1;
-//     for (uint64_t i = 0; i < entry_count; i++) {
-//         Elf64_Dyn d;
-//         off_t off = (off_t)(dyn_offset + i * sizeof(Elf64_Dyn));
-//         ssize_t r = pread(fd, &d, sizeof(d), off);
-//         if (r != sizeof(d))
-//             break;
-//         if ((int64_t)d.d_tag == DT_DEBUG) {
-//             debug_index = (int)i;
-//             break;
-//         }
-//         if ((int64_t)d.d_tag == DT_NULL)
-//             break;
-//     }
-
-//     elf_end(e);
-//     if (debug_index < 0) {
-//         close(fd);
-//         WARNING("DT_DEBUG not found in file for %s\n", exe_path);
-//         return 0;
-//     }
-
-//     /* find mapping that contains the PT_DYNAMIC file offset
-//      * We must match the maps entry whose file offset range covers dyn_offset.
-//      * The mapping line gives a start address and the file offset that is mapped
-//      * to that start; the memory address for dyn_offset is therefore:
-//      *    mapping_start + (dyn_offset - mapping_file_offset)
-//      */
-//     char maps_path[256];
-//     snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);
-//     FILE *fp = fopen(maps_path, "r");
-//     if (!fp) {
-//         close(fd);
-//         return 0;
-//     }
-//     char line[512];
-//     uint64_t dyn_addr_mem = 0;
-//     while (fgets(line, sizeof(line), fp)) {
-//         if (!strstr(line, exe_path))
-//             continue;
-//         uint64_t start = 0, end = 0, map_off = 0;
-//         char perms[16], dev[16], inode_str[32], path[256];
-//         int n = sscanf(line, "%lx-%lx %15s %lx %15s %31s %255s", &start, &end, perms, &map_off, dev, inode_str,
-//         path); if (n < 4)
-//             continue;
-//         uint64_t mapsize = end - start;
-//         if (dyn_offset >= map_off && dyn_offset < map_off + mapsize) {
-//             dyn_addr_mem = start + (dyn_offset - map_off);
-//             break;
-//         }
-//     }
-//     fclose(fp);
-//     if (!dyn_addr_mem) {
-//         close(fd);
-//         WARNING("failed to locate dynamic section in process maps for %s\n", exe_path);
-//         return 0;
-//     }
-//     uint64_t entry_addr = dyn_addr_mem + (uint64_t)debug_index * sizeof(Elf64_Dyn);
-//     DEBUG("DT_DEBUG entry address = 0x%lx\n", entry_addr);
-
-//     /* read the DT_DEBUG entry from target memory using ptrace peek (single word reads)
-//      * d_tag (8 bytes) + d_un (8 bytes). We'll read two words and reconstruct the entry.
-//      */
-//     Elf64_Dyn dval;
-//     long v0 = ptrace_peek(pid, entry_addr);
-//     if (errno) {
-//         close(fd);
-//         return 0;
-//     }
-//     long v1 = ptrace_peek(pid, entry_addr + sizeof(long));
-//     if (errno) {
-//         close(fd);
-//         return 0;
-//     }
-//     memcpy(&dval, &v0, sizeof(long));
-//     memcpy(((uint8_t *)&dval) + sizeof(long), &v1, sizeof(long));
-
-//     if ((int64_t)dval.d_tag == DT_DEBUG) {
-//         uint64_t ret = (uint64_t)dval.d_un.d_ptr;
-//         DEBUG("found DT_DEBUG pointer = 0x%lx\n", ret);
-//         close(fd);
-//         return ret;
-//     }
-
-//     close(fd);
-//     WARNING("tag: %ld, d_un: %ld\n", dval.d_tag, dval.d_un.d_ptr);
-//     WARNING("DT_DEBUG entry mismatched after ptrace read\n");
-//     return 0;
-// }
-
 static int symbol_cmp(const void *a, const void *b) {
     const struct symbol *sa = a, *sb = b;
     if (sa->addr < sb->addr)
@@ -182,6 +31,28 @@ static int symbol_cmp(const void *a, const void *b) {
         return 1;
     else
         return 0;
+}
+
+static void deduplicate_symbols(struct symbol_table *st) {
+    if (st->size <= 1)
+        return;
+
+    int write_idx = 1;
+    int orig_size = st->size;
+    for (int i = 1; i < st->size; i++) {
+        if (st->symbols[i].addr != st->symbols[write_idx - 1].addr) {
+            st->symbols[write_idx] = st->symbols[i];
+            write_idx++;
+        } else {
+            free(st->symbols[i].name);
+            if (st->symbols[i].module)
+                free(st->symbols[i].module);
+            if (st->symbols[i].filename)
+                free(st->symbols[i].filename);
+        }
+    }
+    st->size = write_idx;
+    DEBUG("deduplicate symbols: %d -> %d items\n", orig_size, st->size);
 }
 
 int load_user_symbols(struct symbol_table *st, int pid) {
@@ -233,16 +104,17 @@ int load_user_symbols(struct symbol_table *st, int pid) {
         }
     }
     fclose(fp);
-    DEBUG("load user symbol %d items\n", st->size);
     if (st->size == 0) {
         ERR("fail to load user symbols, something went wrong!\n");
         return -1;
     }
     qsort(st->symbols, st->size, sizeof(struct symbol), symbol_cmp);
+    deduplicate_symbols(st);
     if (enable_debug) {
         save_symbol_table(st, "ust.txt");
         DEBUG("save user symbol table to ust.txt\n");
     }
+    INFO("load user symbol %d items\n", st->size);
     return 0;
 
     /*
@@ -276,7 +148,7 @@ int load_kernel_symbols(struct symbol_table *st) {
         p = fgets(bb, sizeof(bb), fp);
         if (p == NULL)
             break;
-        n = sscanf(p, "%s %s %s\t[%s", adr, type, name, module);
+        n = sscanf(p, "%s %s %s\t%s", adr, type, name, module);
         if (n != 3 && n != 4) {
             fprintf(stderr, "fail to parse line: %s", p);
             continue;
@@ -290,9 +162,7 @@ int load_kernel_symbols(struct symbol_table *st) {
         if (c == 0)
             continue;
         // set module's last char to '\0'
-        if (is_module)
-            module[strlen(module) - 1] = '\0';
-        add_symbol(st, name, addr, is_module ? module : "linux kernel");
+        add_symbol(st, name, addr, is_module ? module : "[kernel]");
     }
     fclose(fp);
     if (enable_debug) {
@@ -321,50 +191,18 @@ void free_symbol_table(struct symbol_table *st) {
     }
     for (int i = 0; i < st->size; i++) {
         free(st->symbols[i].name);
-        if (st->symbols[i].module != NULL) {
+        if (st->symbols[i].module) {
             free(st->symbols[i].module);
+        }
+        if (st->symbols[i].filename) {
+            free(st->symbols[i].filename);
         }
     }
     free(st->symbols);
+    free(st);
 }
 
-static char *auto_demangle(const char *sym) {
-    char *res;
-
-    switch (language) {
-        case LANGUAGE_C:
-            return strdup(sym);
-        case LANGUAGE_CPP:
-            /* no need for parameters and return type, only func name */
-            res = cplus_demangle(sym, DMGL_ANSI);
-            if (res)
-                return res;
-            return strdup(sym);
-        case LANGUAGE_RUST:
-            res = rust_demangle(sym, DMGL_ANSI);
-            if (res)
-                return res;
-            return strdup(sym);
-        case LANGUAGE_UNKNOWN:
-            /* C++ Itanium ABI */
-            if (sym[0] == '_' && sym[1] == 'Z') {
-                res = cplus_demangle(sym, DMGL_ANSI);
-                if (res)
-                    return res;
-            }
-
-            /* Rust (new ABI) */
-            if (!strncmp(sym, "_RNv", 4)) {
-                res = rust_demangle(sym, DMGL_ANSI);
-                if (res)
-                    return res;
-            }
-        default:
-            return strdup(sym);
-    }
-}
-
-void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module) {
+struct symbol *add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module) {
     if (st->size == st->capacity) {
         st->capacity *= SYMBOL_TABLE_GROWTH_FACTOR;
         st->symbols = realloc(st->symbols, sizeof(struct symbol) * st->capacity);
@@ -374,10 +212,14 @@ void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const 
         }
         DEBUG("realloc symbol table to %d\n", st->capacity);
     }
-    st->symbols[st->size].addr = addr;
-    st->symbols[st->size].name = auto_demangle(name);
-    st->symbols[st->size].module = module ? strdup(module) : NULL;
+    struct symbol *s = &st->symbols[st->size];
+    s->addr = addr;
+    s->name = strdup(name);
+    s->module = module ? strdup(module) : NULL;
+    s->filename = NULL;
+    s->lineno = 0;
     st->size++;
+    return s;
 }
 
 void save_symbol_table(struct symbol_table *st, const char *file) {

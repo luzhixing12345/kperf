@@ -276,7 +276,7 @@ function createTagsPanel() {
         if (!markedPanel) {
             const mp = document.createElement('div');
             mp.className = 'marked-panel';
-            mp.innerHTML = '<h3>' + STR.markedFunctions + '</h3><p class="no-marks">' + STR.noMarks + '</p>';
+            mp.innerHTML = '<h3>' + 'Marked Functions' + '</h3><p class="no-marks">' + 'No marks' + '</p>';
             existing.appendChild(mp);
         }
         return;
@@ -292,7 +292,7 @@ function createTagsPanel() {
 
     const markedPanel = document.createElement('div');
     markedPanel.className = 'marked-panel';
-    markedPanel.innerHTML = '<h3>' + STR.markedFunctions + '</h3>';
+    markedPanel.innerHTML = '<h3>' + 'Marked Functions' + '</h3>';
     treeContainer.appendChild(markedPanel);
 
     treeParent.appendChild(treeContainer);
@@ -303,7 +303,7 @@ function updateTagsPanel() {
     const markedPanel = document.querySelector('.marked-panel');
     const markedNodes = document.querySelectorAll('.marked');
 
-    let markedContent = `<h3>${STR.markedFunctions}</h3>`;
+    let markedContent = `<h3>Marked Functions</h3>`;
 
     if (markedNodes.length > 0) {
         markedContent += Array.from(markedNodes).map(node => {
@@ -317,7 +317,7 @@ function updateTagsPanel() {
             `;
         }).join('');
     } else {
-        markedContent += `<p class="no-marks">${STR.noMarks}</p>`;
+        markedContent += `<p class="no-marks">${'No marks'}</p>`;
     }
 
     markedPanel.innerHTML = markedContent;
@@ -451,11 +451,84 @@ labels.forEach(label => {
     });
 });
 
+// 创建 tooltip 元素
+function createTooltip() {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'file-info-tooltip';
+    document.body.appendChild(tooltip);
+    return tooltip;
+}
+
+// 鼠标悬浮显示文件信息
+function setupFileInfoTooltip() {
+    const tooltip = createTooltip();
+    const hoverTimers = new WeakMap();
+    let hideTimer = null;
+    let isTooltipHovered = false;
+
+    function hideTooltip() {
+        tooltip.style.display = 'none';
+        isTooltipHovered = false;
+    }
+
+    function scheduleHide() {
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+            console.log("isTooltipHovered", isTooltipHovered);
+            if (!isTooltipHovered) {
+                hideTooltip();
+            }
+        }, 300);
+    }
+
+    labels.forEach(label => {
+        label.addEventListener('mouseenter', (e) => {
+            const fileInfo = label.getAttribute('text');
+            if (!fileInfo || fileInfo.includes('?')) return;
+
+            const timer = setTimeout(() => {
+                tooltip.textContent = fileInfo;
+                tooltip.style.display = 'block';
+                const rect = label.getBoundingClientRect();
+                tooltip.style.left = rect.left + 'px';
+                tooltip.style.top = (rect.bottom + 5) + 'px';
+            }, 1000);
+
+            hoverTimers.set(label, timer);
+        });
+
+        label.addEventListener('mouseleave', () => {
+            const timer = hoverTimers.get(label);
+            if (timer) {
+                clearTimeout(timer);
+                hoverTimers.delete(label);
+            }
+            scheduleHide();
+        });
+    });
+
+    // Tooltip 本身的鼠标事件
+    tooltip.addEventListener('mouseenter', () => {
+        isTooltipHovered = true;
+        console.log("isTooltipHovered", isTooltipHovered);
+        if (hideTimer) {
+            clearTimeout(hideTimer);
+            hideTimer = null;
+        }
+    });
+
+    tooltip.addEventListener('mouseleave', () => {
+        isTooltipHovered = false;
+        hideTooltip();
+    });
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     createControls();
     createSearchBox();
     createTagsPanel();
+    setupFileInfoTooltip();
     expandAll();
     addPerformanceColors(); // 对频率较低的函数标记为灰色并折叠
 });

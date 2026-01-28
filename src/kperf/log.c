@@ -48,17 +48,27 @@ void __LOG(int level, const char *file, const char *func, int line, const char *
     if (!logfile) {
         logfile = stdout;
     }
-    if (isatty(fileno(logfile))) {
-        fprintf(logfile,
-                "[%s%-5s\x1b[0m][\x1b[90m%s:%d(%s)\x1b[0m] ",
-                logcolor_str[level],
-                loglevel_str[level],
-                file,
-                line,
-                func);
+    if (file && func) {
+        if (isatty(fileno(logfile))) {
+            fprintf(logfile,
+                    "[%s%-5s\x1b[0m][\x1b[90m%s:%d(%s)\x1b[0m] ",
+                    logcolor_str[level],
+                    loglevel_str[level],
+                    file,
+                    line,
+                    func);
+        } else {
+            fprintf(logfile, "[%s][%s:%d(%s)] ", loglevel_str[level], file, line, func);
+        }
     } else {
-        fprintf(logfile, "[%s][%s:%d(%s)] ", loglevel_str[level], file, line, func);
+        // release mode
+        if (isatty(fileno(logfile))) {
+            fprintf(logfile, "[%s%-5s\x1b[0m] ", logcolor_str[level], loglevel_str[level]);
+        } else {
+            fprintf(logfile, "[%s] ", loglevel_str[level]);
+        }
     }
+
     vfprintf(logfile, format, ap);
     fflush(logfile);
     va_end(ap);

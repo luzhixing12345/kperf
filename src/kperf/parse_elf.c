@@ -1,7 +1,9 @@
 
+#include <assert.h>
 #include <elf.h>
 #include <gelf.h>
 #include <linux/limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -9,16 +11,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <libdwarf/libdwarf.h>
-#include <libiberty/demangle.h>
+#include <elfutils/libdw.h>
+#include <elfutils/libdwfl.h>
 #include <dwarf.h>
 #include <libgen.h>
 #include "log.h"
 #include "parse_elf.h"
 #include "utils.h"
 #include "symbol.h"
-
-extern enum language_type language;
 
 /* ------------------ read .gnu_debuglink ------------------ */
 int read_gnu_debuglink(Elf *elf, char *name, size_t name_sz, uint32_t *crc) {
@@ -95,163 +95,15 @@ int read_build_id(Elf *elf, unsigned char *id, size_t *id_len) {
     return -1;
 }
 
-static const char *lang_to_str(Dwarf_Unsigned lang) {
-    switch (lang) {
-        case DW_LANG_C:
-            return "C";
-        case DW_LANG_C89:
-            return "C89";
-        case DW_LANG_C99:
-            return "C99";
-        case DW_LANG_C11:
-            return "C11";
-        case DW_LANG_C_plus_plus:
-            return "C++";
-        case DW_LANG_C_plus_plus_11:
-            return "C++11";
-        case DW_LANG_C_plus_plus_14:
-            return "C++14";
-        case DW_LANG_Rust:
-            return "Rust";
-        default:
-            return "Unknown";
+int has_dwarf_info(int fd) {
+    Dwarf *dbg = NULL;
+    dbg = dwarf_begin(fd, DWARF_C_READ);
+    if (!dbg) {
+        DEBUG("no DWARF info\n");
+        return 0;
     }
-}
-
-static enum language_type get_language_type_enum(Dwarf_Unsigned lang) {
-    switch (lang) {
-        case DW_LANG_C:
-        case DW_LANG_C89:
-        case DW_LANG_C99:
-        case DW_LANG_C11:
-            return LANGUAGE_C;
-        case DW_LANG_C_plus_plus:
-        case DW_LANG_C_plus_plus_11:
-        case DW_LANG_C_plus_plus_14:
-            return LANGUAGE_CPP;
-        case DW_LANG_Rust:
-            return LANGUAGE_RUST;
-        default:
-            return LANGUAGE_UNKNOWN;
-    }
-}
-
-static Dwarf_Unsigned get_dwarf_language_type(int fd) {
-    Dwarf_Debug dbg;
-    Dwarf_Error err;
-
-    if (dwarf_init(fd, DW_DLC_READ, NULL, NULL, &dbg, &err) != DW_DLV_OK) {
-        ERR("dwarf_init failed\n");
-        return -1;
-    }
-
-    Dwarf_Unsigned cu_header_length;
-    Dwarf_Half version_stamp;
-    Dwarf_Unsigned abbrev_offset;
-    Dwarf_Half address_size;
-    Dwarf_Unsigned next_cu_header;
-
-    while (dwarf_next_cu_header(
-               dbg, &cu_header_length, &version_stamp, &abbrev_offset, &address_size, &next_cu_header, &err) ==
-           DW_DLV_OK) {
-        Dwarf_Die cu_die;
-
-        if (dwarf_siblingof(dbg, NULL, &cu_die, &err) != DW_DLV_OK) {
-            continue;
-        }
-
-        Dwarf_Attribute attr;
-        if (dwarf_attr(cu_die, DW_AT_language, &attr, &err) == DW_DLV_OK) {
-            Dwarf_Unsigned lang;
-            if (dwarf_formudata(attr, &lang, &err) == DW_DLV_OK) {
-                DEBUG("CU language: %s (%llu)\n", lang_to_str(lang), (unsigned long long)lang);
-                return lang;
-            }
-        } else {
-            DEBUG("CU language: <not specified>\n");
-        }
-
-        dwarf_dealloc(dbg, cu_die, DW_DLA_DIE);
-    }
-
-    dwarf_finish(dbg, &err);
-    return -1;
-}
-
-int has_dwarf_info(Elf *e) {
-    /* First check whether ELF contains DWARF sections (.debug_info or .debug_line)
-     * using libelf; if not present, return -1 immediately.
-     */
-    int has_dwarf = 0;
-    Elf_Scn *scn_check = NULL;
-    GElf_Shdr shdr_check;
-    size_t shstrndx;
-    if (elf_getshdrstrndx(e, &shstrndx) == 0) {
-        while ((scn_check = elf_nextscn(e, scn_check)) != NULL) {
-            if (gelf_getshdr(scn_check, &shdr_check) != &shdr_check)
-                continue;
-            const char *sname = elf_strptr(e, shstrndx, shdr_check.sh_name);
-            if (!sname)
-                continue;
-            if (strcmp(sname, ".debug_info") == 0 || strcmp(sname, ".debug_line") == 0 ||
-                strcmp(sname, ".zdebug_info") == 0 || strcmp(sname, ".zdebug_line") == 0) {
-                has_dwarf = 1;
-                break;
-            }
-        }
-    }
-    return has_dwarf;
-
-    // /* Try using libbfd to get file/line info from DWARF if available */
-    // bfd_init();
-    // bfd *abfd = bfd_openr(elf_path, NULL);
-    // if (abfd && bfd_check_format(abfd, bfd_object)) {
-    //     long storage = bfd_get_symtab_upper_bound(abfd);
-    //     if (storage > 0) {
-    //         asymbol **syms = (asymbol **)malloc(storage);
-    //         if (syms) {
-    //             long symcount = bfd_canonicalize_symtab(abfd, syms);
-    //             DEBUG("symcount = %d\n", symcount);
-    //             if (symcount > 0) {
-    //                 /* iterate function symbols and try to get source file/line */
-    //                 for (long i = 0; i < symcount; i++) {
-    //                     asymbol *sym = syms[i];
-    //                     if (!(sym->flags & BSF_FUNCTION))
-    //                         continue;
-    //                     asection *sec = sym->section;
-    //                     if (!sec)
-    //                         continue;
-    //                     if (!(sec->flags & SEC_CODE))
-    //                         continue;
-
-    //                     const char *name = sym->name ? sym->name : "<noname>";
-    //                     bfd_vma addr = sym->value + sec->vma;
-    //                     uint64_t runtime_addr = map_start + addr - map_offset;
-
-    //                     const char *filename = NULL;
-    //                     const char *funcname = NULL;
-    //                     unsigned int line = 0;
-    //                     if (bfd_find_nearest_line(abfd, sec, NULL, addr - sec->vma, &filename, &funcname, &line)) {
-    //                         // DEBUG("FUNC %-30s RUNTIME=0x%lx FILE=%s:%u\n",
-    //                         //       name,
-    //                         //       (unsigned long)runtime_addr,
-    //                         //       filename ? filename : "??",
-    //                         //       line);
-    //                     } else {
-    //                         // DEBUG("FUNC %-30s RUNTIME=0x%lx\n", name, (unsigned long)runtime_addr);
-    //                     }
-    //                     add_symbol(st, name, runtime_addr, module_name);
-    //                 }
-    //             }
-    //             free(syms);
-    //         }
-    //     }
-    //     bfd_close(abfd);
-    //     return 0;
-    // } else {
-    //     DEBUG("no dwarf info found\n");
-    //     return -1;
-    // }
+    dwarf_end(dbg);
+    return 1;
 }
 
 int has_debug_link(Elf *e, char *path) {
@@ -300,10 +152,99 @@ int has_debug_link(Elf *e, char *path) {
     }
 }
 
+static int get_dwarf_function_info(Dwarf_Die *cu_die, Dwarf_Die *die, uint64_t *addr, const char **filename,
+                                   int *lineno) {
+    Dwarf_Addr low_pc, high_pc;
+
+    if (dwarf_lowpc(die, &low_pc) == 0 && dwarf_highpc(die, &high_pc) == 0) {
+        *addr = low_pc;
+        Dwarf_Files *files;
+        size_t nfiles;
+        if (dwarf_getsrcfiles(cu_die, &files, &nfiles) == 0) {
+            Dwarf_Line *line = dwarf_getsrc_die(cu_die, *addr);
+            if (line) {
+                *filename = dwarf_linesrc(line, NULL, NULL);
+                if (dwarf_lineno(line, lineno) == 0) {
+                    return 0;
+                }
+                ERR("  No line number available\n");
+                return 0;
+            } else {
+                ERR("  No line info available\n");
+                return -1;
+            }
+        } else {
+            ERR("  No source files information\n");
+            return -1;
+        }
+    }
+    return -1;
+}
+
+static int dwarf_process_cu(Dwarf_Die *cu_die, struct symbol_table *st, uint64_t map_bias, char *module_name) {
+    Dwarf_Die child_die;
+    int res = dwarf_child(cu_die, &child_die);
+
+    while (res == 0) {
+        if (dwarf_tag(&child_die) == DW_TAG_subprogram) {
+            const char *name = dwarf_diename(&child_die);
+            const char *filename = NULL;
+            int lineno = -1;
+            uint64_t addr = 0;
+            if (name) {
+                if (get_dwarf_function_info(cu_die, &child_die, &addr, &filename, &lineno) == 0) {
+                    uint64_t runtime_addr = map_bias + addr;
+                    struct symbol *sym;
+                    sym = add_symbol(st, name, runtime_addr, module_name);
+                    assert(filename != NULL);
+                    assert(lineno != -1);
+                    sym->filename = strdup(filename);
+                    sym->lineno = lineno;
+                }
+            } else {
+                ERR("No function info available\n");
+            }
+        }
+
+        Dwarf_Die sibling_die;
+        if (dwarf_siblingof(&child_die, &sibling_die) == 0) {
+            child_die = sibling_die;
+        } else {
+            break;
+        }
+    }
+
+    return DWARF_CB_OK;
+}
+
+int load_dwarf(struct symbol_table *st, int fd, uint64_t map_bias, char *module_name) {
+    Dwarf *dbg = NULL;
+    dbg = dwarf_begin(fd, DWARF_C_READ);
+    if (!dbg) {
+        ERR("Failed to initialize DWARF debugging: %s\n", dwarf_errmsg(-1));
+        close(fd);
+        return -1;
+    }
+
+    Dwarf_Off cu_offset = 0;
+    Dwarf_Off next_cu_offset = 0;
+    size_t cu_header_size = 0;
+    Dwarf_Die cu_die;
+
+    while (dwarf_nextcu(dbg, cu_offset, &next_cu_offset, &cu_header_size, NULL, NULL, NULL) == 0) {
+        Dwarf_Die *cu_die_ptr = dwarf_offdie(dbg, cu_offset + cu_header_size, &cu_die);
+        if (cu_die_ptr && dwarf_tag(cu_die_ptr) == DW_TAG_compile_unit) {
+            dwarf_process_cu(cu_die_ptr, st, map_bias, module_name);
+        }
+        cu_offset = next_cu_offset;
+    }
+
+    dwarf_end(dbg);
+    return 0;
+}
+
 int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start, uint64_t map_offset,
                     char *module_name) {
-    DEBUG("load elf file: %s\n", elf_path);
-
     if (elf_version(EV_CURRENT) == EV_NONE) {
         fprintf(stderr, "libelf init failed\n");
         return 1;
@@ -315,22 +256,19 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
         return 1;
     }
 
+    if (has_dwarf_info(fd)) {
+        DEBUG("load dwarf file: %s\n", elf_path);
+        if (load_dwarf(st, fd, map_start - map_offset, module_name) == 0) {
+            DEBUG("finish loading dwarf file: %s\n", elf_path);
+        } else {
+            ERR("load dwarf failed, use elf symbol table\n");
+        }
+    }
+
     Elf *e = elf_begin(fd, ELF_C_READ, NULL);
     if (!e) {
         fprintf(stderr, "elf_begin failed\n");
         return 1;
-    }
-
-    /*
-     * check if the elf file has dwarf info, if it does
-     * get the language type from dwarf info for better symbol name
-     */
-    if (language == -1 && has_dwarf_info(e)) {
-        Dwarf_Unsigned lang = get_dwarf_language_type(fd);
-        if (lang != -1) {
-            language = get_language_type_enum(lang);
-            DEBUG("set language type to %s\n", lang_to_str(lang));
-        }
     }
 
     Elf_Scn *scn = NULL;
@@ -366,9 +304,6 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
         }
     }
 
-    /* if libbfd path above didn't work, fall back to debuglink/build-id search
-     * and finally to symbol table parsing via libelf (existing logic)
-     */
     char debug_path[PATH_MAX];
     if (has_debug_link(e, debug_path) == 0) {
         if (load_elf_symbol(st, debug_path, map_start, map_offset, module_name) == 0) {

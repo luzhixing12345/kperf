@@ -10,7 +10,7 @@
 /* tree node */
 struct node {
     long count;
-    char *name;
+    struct symbol *sym;
     uint32_t pid;
     uint32_t tid;
     uint32_t node_id;

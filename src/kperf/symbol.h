@@ -11,6 +11,8 @@ struct symbol {
     char *name;
     uint64_t addr;
     char *module;
+    char *filename;
+    int lineno;
 };
 
 struct symbol_table {
@@ -29,7 +31,7 @@ enum language_type {
 
 void init_symbol_table(struct symbol_table *st);
 void free_symbol_table(struct symbol_table *st);
-void add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module);
+struct symbol *add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module);
 int load_user_symbols(struct symbol_table *st, int pid);
 int load_kernel_symbols(struct symbol_table *st);
 uint64_t get_symbol_addr(struct symbol_table *st, const char *name);
