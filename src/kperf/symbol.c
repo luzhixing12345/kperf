@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <libdwarf/libdwarf.h>
+#include <libiberty/demangle.h>
 #include <dwarf.h>
 #include <elf.h>
 #include <gelf.h>
@@ -22,6 +23,7 @@
 #include "parse_elf.h"
 
 extern int enable_debug;
+enum language_type language = -1;
 
 static int symbol_cmp(const void *a, const void *b) {
     const struct symbol *sa = a, *sb = b;
@@ -70,14 +72,20 @@ int load_user_symbols(struct symbol_table *st, int pid) {
     }
 
     /* find exe path */
-    char exe_link[64], exe_path[PATH_MAX];
-    snprintf(exe_link, sizeof(exe_link), "/proc/%d/exe", pid);
-    ssize_t len = readlink(exe_link, exe_path, sizeof(exe_path) - 1);
+    char elf_link[64], elf_path[PATH_MAX];
+    snprintf(elf_link, sizeof(elf_link), "/proc/%d/exe", pid);
+    ssize_t len = readlink(elf_link, elf_path, sizeof(elf_path) - 1);
     if (len <= 0) {
         DEBUG("no exe path\n");
         return -1;
     }
-    exe_path[len] = '\0';
+    elf_path[len] = '\0';
+
+    /*
+     * check if the elf file has dwarf info, if it does
+     * get the language type from dwarf info for better symbol name
+     */
+    get_language(elf_path);
 
     /*
      * read the mapped elf file symbols and add them to the symbol table
@@ -202,6 +210,42 @@ void free_symbol_table(struct symbol_table *st) {
     free(st);
 }
 
+static char *auto_demangle(const char *sym) {
+    char *res;
+
+    switch (language) {
+        case LANGUAGE_C:
+            return strdup(sym);
+        case LANGUAGE_CPP:
+            /* no need for parameters and return type, only func name */
+            res = cplus_demangle(sym, DMGL_ANSI);
+            if (res)
+                return res;
+            return strdup(sym);
+        case LANGUAGE_RUST:
+            res = rust_demangle(sym, DMGL_ANSI);
+            if (res)
+                return res;
+            return strdup(sym);
+        case LANGUAGE_UNKNOWN:
+        default:
+            /* C++ Itanium ABI */
+            if (sym[0] == '_' && sym[1] == 'Z') {
+                res = cplus_demangle(sym, DMGL_ANSI);
+                if (res)
+                    return res;
+            }
+
+            /* Rust (new ABI) */
+            if (!strncmp(sym, "_RNv", 4)) {
+                res = rust_demangle(sym, DMGL_ANSI);
+                if (res)
+                    return res;
+            }
+            return strdup(sym);
+    }
+}
+
 struct symbol *add_symbol(struct symbol_table *st, const char *name, uint64_t addr, const char *module) {
     if (st->size == st->capacity) {
         st->capacity *= SYMBOL_TABLE_GROWTH_FACTOR;
@@ -214,7 +258,7 @@ struct symbol *add_symbol(struct symbol_table *st, const char *name, uint64_t ad
     }
     struct symbol *s = &st->symbols[st->size];
     s->addr = addr;
-    s->name = strdup(name);
+    s->name = auto_demangle(name);
     s->module = module ? strdup(module) : NULL;
     s->filename = NULL;
     s->lineno = 0;

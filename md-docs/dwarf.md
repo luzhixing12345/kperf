@@ -23,3 +23,10 @@ objcopy --add-gnu-debuglink=a.debug a
 # readelf --string-dump=.gnu_debuglink a
 ```
 
+readelf --notes a
+
+```bash
+o
+```
+
+objdump --dwarf=info lgo

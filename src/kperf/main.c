@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
     // signal(SIGTERM, int_exit);
 
     if (!is_root()) {
-        printf("kperf must be run as root\n");
+        ERR("kperf must be run as root\n");
         goto cleanup;
     }
 

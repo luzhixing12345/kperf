@@ -33,10 +33,9 @@ this project need some dependencies
 - libz-dev: for compressing data
 - libiberty-dev: for name demangling for cpp/rust elf file
 - libdw-dev: for parsing dwarf
-- libdwarf-dev: for parsing dwarf
 
 ```bash
-sudo apt install libbpf-dev libelf-dev clang libz-dev libdw-dev
+sudo apt install libbpf-dev libelf-dev clang libz-dev libdw-dev libiberty-dev
 ```
 
 ```bash

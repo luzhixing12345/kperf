@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <time.h>
+#include <iostream>
+#include <vector>
 
 // 测试参数宏定义
 #define FOO1_ITERATIONS 1000000000L   // foo1函数循环次数
@@ -68,6 +70,15 @@ int main() {
     printf("  foo2: %.6f (%.1f%%) - %ld iterations\n", t_foo2, t_foo2 / total * 100, FOO2_ITERATIONS);
     printf("  foo3: %.6f (%.1f%%) - %ld iterations\n", t_foo3, t_foo3 / total * 100, FOO3_ITERATIONS);
     printf("  Total: %.6f seconds\n", total);
+
+    std::vector<int> vec;
+    for (int i=0;i<1000000;i++) {
+        vec.push_back(i);
+    }
+
+    for (int i=0;i<1000000;i++) {
+        vec.pop_back();
+    }
 
     return 0;
 }

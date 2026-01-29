@@ -13,12 +13,15 @@
 #include <errno.h>
 #include <elfutils/libdw.h>
 #include <elfutils/libdwfl.h>
+#include <libiberty/demangle.h>
 #include <dwarf.h>
 #include <libgen.h>
 #include "log.h"
 #include "parse_elf.h"
 #include "utils.h"
 #include "symbol.h"
+
+extern enum language_type language;
 
 /* ------------------ read .gnu_debuglink ------------------ */
 int read_gnu_debuglink(Elf *elf, char *name, size_t name_sz, uint32_t *crc) {
@@ -95,15 +98,102 @@ int read_build_id(Elf *elf, unsigned char *id, size_t *id_len) {
     return -1;
 }
 
+static const char *lang_to_str(Dwarf_Word lang) {
+    switch (lang) {
+        case DW_LANG_C:
+            return "C";
+        case DW_LANG_C89:
+            return "C89";
+        case DW_LANG_C99:
+            return "C99";
+        case DW_LANG_C11:
+            return "C11";
+        case DW_LANG_C_plus_plus:
+            return "C++";
+        case DW_LANG_C_plus_plus_11:
+            return "C++11";
+        case DW_LANG_C_plus_plus_14:
+            return "C++14";
+        case DW_LANG_Rust:
+            return "Rust";
+        default:
+            return "Unknown";
+    }
+}
+
+static enum language_type get_language_type_enum(Dwarf_Word lang) {
+    switch (lang) {
+        case DW_LANG_C:
+        case DW_LANG_C89:
+        case DW_LANG_C99:
+        case DW_LANG_C11:
+            return LANGUAGE_C;
+        case DW_LANG_C_plus_plus:
+        case DW_LANG_C_plus_plus_11:
+        case DW_LANG_C_plus_plus_14:
+            return LANGUAGE_CPP;
+        case DW_LANG_Rust:
+            return LANGUAGE_RUST;
+        default:
+            return LANGUAGE_UNKNOWN;
+    }
+}
+
+void get_dwarf_language_type(int fd) {
+    Dwarf *dbg = dwarf_begin(fd, DWARF_C_READ);
+    if (!dbg) {
+        ERR("dwarf_begin failed\n");
+        return;
+    }
+    Dwarf_Off cu_offset = 0;
+    Dwarf_Off next_cu_offset = 0;
+    size_t cu_header_size = 0;
+    Dwarf_Die cu_die;
+    while (dwarf_nextcu(dbg, cu_offset, &next_cu_offset, &cu_header_size, NULL, NULL, NULL) == 0) {
+        Dwarf_Die *cu_die_ptr = dwarf_offdie(dbg, cu_offset + cu_header_size, &cu_die);
+        if (cu_die_ptr && dwarf_tag(cu_die_ptr) == DW_TAG_compile_unit) {
+            Dwarf_Attribute attr_mem;
+            Dwarf_Attribute *attr = dwarf_attr(cu_die_ptr, DW_AT_language, &attr_mem);
+            if (attr) {
+                Dwarf_Word lang;
+                if (dwarf_formudata(attr, &lang) == 0) {
+                    DEBUG("CU language: %s (%llu)\n", lang_to_str(lang), (unsigned long long)lang);
+                    dwarf_end(dbg);
+                    language = get_language_type_enum(lang);
+                    return;
+                }
+            } else {
+                DEBUG("CU language: <not specified>\n");
+            }
+        }
+        cu_offset = next_cu_offset;
+    }
+    dwarf_end(dbg);
+    return;
+}
+
 int has_dwarf_info(int fd) {
     Dwarf *dbg = NULL;
     dbg = dwarf_begin(fd, DWARF_C_READ);
     if (!dbg) {
-        DEBUG("no DWARF info\n");
         return 0;
     }
     dwarf_end(dbg);
     return 1;
+}
+
+void get_language(char *elf_path) {
+    int fd = open(elf_path, O_RDONLY);
+    if (fd == -1) {
+        ERR("fail to open %s\n", elf_path);
+        return;
+    }
+    if (has_dwarf_info(fd)) {
+        get_dwarf_language_type(fd);
+    } else {
+        DEBUG("no DWARF info in %s, auto demangling symbol name\n", elf_path);
+    }
+    close(fd);
 }
 
 int has_debug_link(Elf *e, char *path) {
@@ -129,6 +219,7 @@ int has_debug_link(Elf *e, char *path) {
          * - /usr/bin/ls.debug
          * - /usr/bin/.debug/ls.debug
          * - /usr/lib/debug/usr/bin/ls.debug.
+         * - /root/.debug/.build-id/ab/cdef1234/elf
          *
          * However gdb uses:
          * (gdb) show debug-file-directory
@@ -144,7 +235,15 @@ int has_debug_link(Elf *e, char *path) {
             return 0;
         } else {
             DEBUG("debug link file %s not found\n", path);
-            return -1;
+            snprintf(path, PATH_MAX, "/root/.debug/.build-id/%02x/%s/elf", build_id[0], hex);
+            if (file_exists(path)) {
+                DEBUG("found debug link file %s\n", path);
+                return 0;
+            } else {
+                DEBUG("debug link file %s not found\n", path);
+                DEBUG("fail to load debug link file\n");
+                return -1;
+            }
         }
     } else {
         DEBUG("no debuglink or buildid found\n");
@@ -258,11 +357,11 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
 
     if (has_dwarf_info(fd)) {
         DEBUG("load dwarf file: %s\n", elf_path);
-        if (load_dwarf(st, fd, map_start - map_offset, module_name) == 0) {
-            DEBUG("finish loading dwarf file: %s\n", elf_path);
-        } else {
+        if (load_dwarf(st, fd, map_start - map_offset, module_name) != 0) {
             ERR("load dwarf failed, use elf symbol table\n");
         }
+    } else {
+        DEBUG("no dwarf info found in %s\n", elf_path);
     }
 
     Elf *e = elf_begin(fd, ELF_C_READ, NULL);
@@ -304,10 +403,15 @@ int load_elf_symbol(struct symbol_table *st, char *elf_path, uint64_t map_start,
         }
     }
 
-    char debug_path[PATH_MAX];
-    if (has_debug_link(e, debug_path) == 0) {
-        if (load_elf_symbol(st, debug_path, map_start, map_offset, module_name) == 0) {
-            DEBUG("finish loading elf file: %s\n", debug_path);
+    // if path already is a debug path, startwith "/usr/lib/debug" or "/root/.debug", return -1
+    if (strstr(elf_path, "/usr/lib/debug") || strstr(elf_path, "/root/.debug")) {
+        DEBUG("path %s is already a debug path\n", elf_path);
+    } else {
+        char debug_path[PATH_MAX];
+        if (has_debug_link(e, debug_path) == 0) {
+            if (load_elf_symbol(st, debug_path, map_start, map_offset, module_name) == 0) {
+                DEBUG("finish loading elf file: %s\n", debug_path);
+            }
         }
     }
 
