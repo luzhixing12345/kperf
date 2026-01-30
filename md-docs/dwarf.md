@@ -28,5 +28,5 @@ readelf --notes a
 ```bash
 o
 ```
-
+-liberty
 objdump --dwarf=info lgo

@@ -1,47 +1,53 @@
 #include <stdio.h>
 #include <bpf/libbpf.h>
 #include <unistd.h>
+#include <signal.h>
+#include "../bpf/fentry.skel.h"
 
-int load_bpf_program(char *file_path) {
-    struct bpf_object *obj;
-    int err;
 
-    obj = bpf_object__open_file(file_path, NULL);
-    if (!obj) {
-        fprintf(stderr, "Failed to open BPF object\n");
-        return 1;
-    }
+static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
+{
+	return vfprintf(stderr, format, args);
+}
 
-    err = bpf_object__load(obj);
-    if (err) {
-        fprintf(stderr, "Failed to load BPF object: %d\n", err);
-        return 1;
-    }
+static volatile sig_atomic_t stop;
 
-    struct bpf_program *prog = bpf_object__find_program_by_name(obj, "handle_tp");
-    if (!prog) {
-        fprintf(stderr, "Cannot find BPF program\n");
-        return 1;
-    }
+void sig_int(int signo)
+{
+	stop = 1;
+}
 
-    printf("prog fd = %d\n", bpf_program__fd(prog));
-    printf("prog type = %d\n", bpf_program__get_type(prog));
+int bpf_fentry_unlink_loader(int argc, char **argv)
+{
+	struct fentry_bpf *skel;
+	int err;
 
-    // attach tracepoint
-    struct bpf_link *link;
-    link = bpf_program__attach_tracepoint(prog, "syscalls", "sys_enter_write");
-    if (!link) {
-        fprintf(stderr, "Failed to attach tracepoint\n");
-        return 1;
-    }
+	/* Set up libbpf errors and debug info callback */
+	libbpf_set_print(libbpf_print_fn);
 
-    printf("BPF program loaded. Check trace_pipe for events.\n");
-    printf("Press Ctrl-C to exit.\n");
+	/* Open load and verify BPF application */
+	skel = fentry_bpf__open_and_load();
+	if (!skel) {
+		fprintf(stderr, "Failed to open BPF skeleton\n");
+		return 1;
+	}
 
-    while (1) sleep(1);
+	/* Attach tracepoint handler */
+	err = fentry_bpf__attach(skel);
+	if (err) {
+		fprintf(stderr, "Failed to attach BPF skeleton\n");
+		goto cleanup;
+	}
 
-    bpf_link__destroy(link);
-    bpf_object__close(obj);
+	printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` "
+	       "to see output of the BPF programs.\n");
 
-    return 0;
+	while (!stop) {
+		fprintf(stderr, ".");
+		sleep(1);
+	}
+
+cleanup:
+	fentry_bpf__destroy(skel);
+	return -err;
 }

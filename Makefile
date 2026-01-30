@@ -290,6 +290,7 @@ multi-exe: $(MULTI_EXE_TARGETS)
 BPF_PATH = src/bpf
 BPF_SRC = $(call rwildcard, $(BPF_PATH), %.bpf.c)
 BPF_OBJS = $(BPF_SRC:.bpf.c=.bpf.o)
+BPF_SKELETONS = $(BPF_SRC:.bpf.c=.skel.h)
 DEPS	+= $(foreach obj,$(BPF_OBJS),\
 		$(subst $(comma),_,$(dir $(obj)).$(notdir $(obj)).d))
 CLANG   = clang
@@ -303,13 +304,17 @@ src/bpf/vmlinux.h:
 	fi
 
 $(BPF_OBJS): src/bpf/vmlinux.h
+
+%.skel.h: %.bpf.o
+	$(E) "  GEN     %s\n" $@
+	$(Q) bpftool gen skeleton $< > $@
 %.bpf.o: %.bpf.c
 	$(E) "  CLANG   %s\n" $@
 	$(Q) $(CLANG) $(c_flags) -g -target bpf -c $< -o $@
 	$(Q) mkdir -p $(BUILD_PATH)/bpf
 	$(Q) cp $@ $(BUILD_PATH)/bpf
 
-bpf: $(BPF_OBJS)
+bpf: $(BPF_OBJS) $(BPF_SKELETONS)
 
 CFLAGS_DYNOPT += -fPIC
 $(OBJS):
@@ -318,6 +323,10 @@ ifeq ($(C),1)
 	$(E) "  CHECK   %s\n" $@
 	$(Q) $(CHECK) -c $(CFLAGS) $(CFLAGS_DYNOPT) $< -o $@
 endif
+	$(E) "  CC      %s\n" $@
+	$(Q) $(CC) -c $(c_flags) $(CFLAGS_DYNOPT) $< -o $@
+
+src/kperf/bpf_loader.o: src/kperf/bpf_loader.c $(BPF_SKELETONS)
 	$(E) "  CC      %s\n" $@
 	$(Q) $(CC) -c $(c_flags) $(CFLAGS_DYNOPT) $< -o $@
 
@@ -353,7 +362,7 @@ clean:
 	$(Q) rm -f $(LIBFDT_STATIC)
 	$(Q) rm -f $(LIBFDT_DYNAMIC)
 	$(Q) rm -f $(MULTI_EXE_TARGETS) $(MULTI_EXE_OBJS)
-	$(Q) rm -f $(BPF_OBJS)
+	$(Q) rm -f $(BPF_OBJS) $(BPF_SKELETONS)
 
 release:
 	$(MAKE) clean

@@ -35,7 +35,7 @@ this project need some dependencies
 - libdw-dev: for parsing dwarf
 
 ```bash
-sudo apt install libbpf-dev libelf-dev clang libz-dev libdw-dev libiberty-dev
+sudo apt install libelf-dev clang libz-dev libdw-dev libiberty-dev linux-tools-common libbpf-dev 
 ```
 
 ```bash

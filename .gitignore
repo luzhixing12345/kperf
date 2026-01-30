@@ -234,3 +234,4 @@ a.py
 kperf-package
 *.deb
 debian/files
+*.skel.h
