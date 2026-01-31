@@ -264,6 +264,26 @@ function createSearchBox() {
     if (expandBtn) expandBtn.addEventListener('click', () => { expandAll(); });
     if (collapseBtn) collapseBtn.addEventListener('click', () => { collapseAll(); });
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && activeIndex === -1) performSearch(input.value); });
+
+    const fireBtn = document.getElementById('fireBtn');
+    const treeBtn = document.getElementById('treeBtn');
+    let currentView = 'tree';
+
+    if (fireBtn && treeBtn) {
+        treeBtn.style.display = 'none';
+
+        fireBtn.addEventListener('click', () => {
+            currentView = 'fire';
+            fireBtn.style.display = 'none';
+            treeBtn.style.display = 'inline-flex';
+        });
+
+        treeBtn.addEventListener('click', () => {
+            currentView = 'tree';
+            treeBtn.style.display = 'none';
+            fireBtn.style.display = 'inline-flex';
+        });
+    }
 }
 
 // 创建标签面板
