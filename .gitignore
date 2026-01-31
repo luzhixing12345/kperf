@@ -235,3 +235,6 @@ kperf-package
 *.deb
 debian/files
 *.skel.h
+c
+c.c
+kperf.html

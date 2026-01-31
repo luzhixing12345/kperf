@@ -144,3 +144,67 @@ int copy_file(const char *src, const char *dst) {
 int file_exists(const char *path) {
     return access(path, R_OK) == 0;
 }
+
+char *replace_string(const char *str, const char *old_sub, const char *new_sub) {
+    if (!str || !old_sub || !new_sub) {
+        return NULL;
+    }
+
+    const char *pos = strstr(str, old_sub);
+    if (!pos) {
+        return strdup(str);
+    }
+
+    size_t old_len = strlen(old_sub);
+    size_t new_len = strlen(new_sub);
+    size_t prefix_len = pos - str;
+    size_t suffix_len = strlen(pos + old_len);
+    size_t result_len = prefix_len + new_len + suffix_len;
+
+    char *result = malloc(result_len + 1);
+    if (!result) {
+        return NULL;
+    }
+
+    char *p = result;
+    memcpy(p, str, prefix_len);
+    p += prefix_len;
+    memcpy(p, new_sub, new_len);
+    p += new_len;
+    memcpy(p, pos + old_len, suffix_len);
+    p += suffix_len;
+    *p = '\0';
+
+    return result;
+}
+
+char *read_file_content(const char *path) {
+    if (!path) {
+        return NULL;
+    }
+
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *content = malloc(len + 1);
+    if (!content) {
+        fclose(f);
+        return NULL;
+    }
+
+    if (fread(content, 1, len, f) != (size_t)len) {
+        free(content);
+        fclose(f);
+        return NULL;
+    }
+
+    content[len] = '\0';
+    fclose(f);
+    return content;
+}

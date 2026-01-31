@@ -474,7 +474,6 @@ function setupFileInfoTooltip() {
     function scheduleHide() {
         if (hideTimer) clearTimeout(hideTimer);
         hideTimer = setTimeout(() => {
-            console.log("isTooltipHovered", isTooltipHovered);
             if (!isTooltipHovered) {
                 hideTooltip();
             }
@@ -510,7 +509,6 @@ function setupFileInfoTooltip() {
     // Tooltip 本身的鼠标事件
     tooltip.addEventListener('mouseenter', () => {
         isTooltipHovered = true;
-        console.log("isTooltipHovered", isTooltipHovered);
         if (hideTimer) {
             clearTimeout(hideTimer);
             hideTimer = null;

@@ -1,4 +1,5 @@
 
+#define _GNU_SOURCE
 #include <linux/limits.h>
 #include <stdint.h>
 #include <string.h>
@@ -232,115 +233,120 @@ struct node *build_tree(struct perf_sample_table *pst, struct symbol_table *ust,
 }
 
 int build_html(struct perf_sample_table *pst, struct symbol_table *ust, struct symbol_table *kst) {
+    struct node *root = NULL;
+    char *tree_buf = NULL;
+    char *css = NULL;
+    char *js = NULL;
+    char *tpl = NULL;
+    char *result = NULL;
+    char *css_replacement = NULL;
+    char *js_replacement = NULL;
+    size_t tree_size = 0;
+    int ret = -1;
+
     if (!pst || pst->size == 0) {
         ERR("no samples to build html\n");
-        return -1;
+        goto cleanup;
     }
 
     /* build tree */
-    struct node *root = build_tree(pst, ust, kst);
+    root = build_tree(pst, ust, kst);
+    if (!root) {
+        ERR("failed to build tree\n");
+        goto cleanup;
+    }
 
     /* render tree into memory buffer */
-    char *tree_buf = NULL;
-    size_t tree_size = 0;
     FILE *ms = open_memstream(&tree_buf, &tree_size);
     if (!ms) {
         perror("open_memstream");
-        return -1;
+        goto cleanup;
     }
 
-    /* printing: collect children into array and sort by count */
     INFO("building html report\n");
     fprintf(ms, "<ul class=\"tree\">\n");
     print_node_html(ms, root, 0);
     fprintf(ms, "</ul>\n");
     fclose(ms);
 
+    /* read index.css */
+    css = read_file_content(KPERF_ETC_TPL_PATH "/index.css");
+    if (!css) {
+        ERR("failed to read index.css\n");
+        goto cleanup;
+    }
+
+    /* read index.js */
+    js = read_file_content(KPERF_ETC_TPL_PATH "/index.js");
+    if (!js) {
+        ERR("failed to read index.js\n");
+        goto cleanup;
+    }
+
     /* read template assets/index.html */
-    const char *tpl_path = KPERF_ETC_TPL_PATH "/index.html";  // for local development
-    FILE *tf = fopen(tpl_path, "r");
-    if (!tf) {
+    const char *tpl_path = KPERF_ETC_TPL_PATH "/index.html";
+    tpl = read_file_content(tpl_path);
+    if (!tpl) {
         ERR("failed to open %s: %s\n", tpl_path, strerror(errno));
         ERR("probably you use `make release` to build kperf, but release mode is only used for debian pkg\n");
         ERR("please use `make` to build kperf for local development(assets/index.html is what you need)\n");
-        return -1;
+        goto cleanup;
     }
 
-    fseek(tf, 0, SEEK_END);
-    long tpl_len = ftell(tf);
-    fseek(tf, 0, SEEK_SET);
-    char *tpl = malloc(tpl_len + 1);
-    if (!tpl) {
-        perror("malloc tpl");
-        fclose(tf);
-        free(tree_buf);
-        return -1;
-    }
-    if (fread(tpl, 1, tpl_len, tf) != (size_t)tpl_len) {
-        perror("fread tpl");
-        fclose(tf);
-        free(tpl);
-        free(tree_buf);
-        return -1;
-    }
-    tpl[tpl_len] = '\0';
-    fclose(tf);
-
-    /* find placeholder and replace */
-    const char *placeholder = "$function-tree";
-    char *pos = strstr(tpl, placeholder);
-    if (!pos) {
-        WARNING("placeholder %s not found in %s\n", placeholder, tpl_path);
+    /* replace $function-tree with tree content */
+    result = replace_string(tpl, "$function-tree", tree_buf);
+    if (!result) {
+        ERR("failed to replace $function-tree\n");
+        goto cleanup;
     }
 
-    /* ensure output directory exists */
-    if (mkdir(KPERF_RESULTS_PATH, 0755) < 0 && errno != EEXIST) {
-        WARNING("mkdir failed: %s\n", strerror(errno));
+    /* replace $css with actual CSS content wrapped in <style> tags */
+    if (asprintf(&css_replacement, "<style>\n%s\n</style>", css) < 0) {
+        ERR("failed to allocate css replacement\n");
+        goto cleanup;
     }
-
-    char index_path[PATH_MAX];
-    snprintf(index_path, sizeof(index_path), "%s/index.html", KPERF_RESULTS_PATH);
-    FILE *of = fopen(index_path, "w");
-    if (!of) {
-        perror("fopen output report");
-        free(tpl);
-        free(tree_buf);
-        return -1;
+    char *new_result = replace_string(result, "$css", css_replacement);
+    if (!new_result) {
+        ERR("failed to replace $css\n");
+        goto cleanup;
     }
+    result = new_result;
 
-    if (pos) {
-        /* write content before placeholder */
-        size_t prefix_len = pos - tpl;
-        fwrite(tpl, 1, prefix_len, of);
-        /* write tree buffer */
-        fwrite(tree_buf, 1, tree_size, of);
-        /* write rest */
-        fwrite(pos + strlen(placeholder), 1, tpl_len - prefix_len - strlen(placeholder), of);
-    } else {
-        /* no placeholder: write template then tree */
-        fwrite(tpl, 1, tpl_len, of);
-        fwrite(tree_buf, 1, tree_size, of);
+    /* replace $js with actual JS content wrapped in <script> tags */
+    if (asprintf(&js_replacement, "<script>\n%s\n</script>", js) < 0) {
+        ERR("failed to allocate js replacement\n");
+        goto cleanup;
     }
+    new_result = replace_string(result, "$js", js_replacement);
+    if (!new_result) {
+        ERR("failed to replace $js\n");
+        goto cleanup;
+    }
+    result = new_result;
 
-    fclose(of);
+    /* write final result */
+    char *index_path = KPERF_RESULT_PATH;
+    FILE *wf = fopen(index_path, "w");
+    if (!wf) {
+        ERR("failed to open %s for writing: %s\n", index_path, strerror(errno));
+        goto cleanup;
+    }
+    fwrite(result, 1, strlen(result), wf);
+    fclose(wf);
     chmod(index_path, 0666);
+    ret = 0;
+
+cleanup:
+    free(css_replacement);
+    free(js_replacement);
+    free(result);
+    free(css);
+    free(js);
     free(tpl);
     free(tree_buf);
-    node_free(root);
-    free(root);
-
-    /* copy js/css/svg to kperf-result */
-    char *assets[] = {
-        KPERF_ETC_TPL_PATH "/index.js", KPERF_ETC_TPL_PATH "/index.css", KPERF_ETC_TPL_PATH "/favicon.svg"};
-    for (int i = 0; i < sizeof(assets) / sizeof(*assets); i++) {
-        char *src = assets[i];
-        char dst[PATH_MAX];
-        snprintf(dst, sizeof(dst), "%s/%s", KPERF_RESULTS_PATH, basename(src));
-        if (copy_file(src, dst) < 0) {
-            WARNING("failed to copy %s to %s: %s\n", src, dst, strerror(errno));
-        } else {
-            chmod(dst, 0666);
-        }
+    if (root) {
+        node_free(root);
+        free(root);
     }
-    return 0;
+    return ret;
 }

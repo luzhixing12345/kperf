@@ -104,25 +104,25 @@ void show_http_server_info(int port) {
     printf("\n");
     printf("    %sKperf v%s%s\n", GREEN, get_version_str(), RESET);
     printf("\n");
-    printf("    %s%s%s Local:   %shttp://127.0.0.1:%d/%s/index.html%s\n",
+    printf("    %s%s%s Local:   %shttp://127.0.0.1:%d/%s%s\n",
            GREEN,
            ARROW_CHAR,
            RESET,
            BLUE,
            port,
-           KPERF_RESULTS_PATH,
+           KPERF_RESULT_PATH,
            RESET);
 
     char ip[INET_ADDRSTRLEN];
     get_ip_addr(ip, sizeof(ip));
-    printf("    %s%s%s Remote:  %shttp://%s:%d/%s/index.html%s\n",
+    printf("    %s%s%s Remote:  %shttp://%s:%d/%s%s\n",
            GREEN,
            ARROW_CHAR,
            RESET,
            BLUE,
            ip,
            port,
-           KPERF_RESULTS_PATH,
+           KPERF_RESULT_PATH,
            RESET);
     printf("    %s%s%s press    %sCTRL+C%s to quit\n", GREEN, ARROW_CHAR, RESET, BOLD, RESET);
     printf("\n");

@@ -10,3 +10,5 @@ char **parse_cmdline(const char *cmdline);
 void free_argv(char **args);
 int copy_file(const char *src, const char *dst);
 int file_exists(const char *path);
+char *replace_string(const char *str, const char *old_sub, const char *new_sub);
+char *read_file_content(const char *path);

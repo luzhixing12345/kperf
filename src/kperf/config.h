@@ -1,7 +1,7 @@
 
 #pragma once
 
-#define KPERF_RESULTS_PATH "kperf-result"
+#define KPERF_RESULT_PATH "kperf.html"
 
 #ifdef RELEASE
 #define KPERF_ETC_TPL_PATH "/etc/kperf"
