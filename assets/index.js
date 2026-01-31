@@ -21,6 +21,170 @@ const functionCalls = contentArray.map(item => {
     return match ? match[0].trim() : "";
 });
 
+// 火焰图常量
+const FLAME_BAR_HEIGHT = 26;
+const FLAME_BAR_GAP = 2;
+const FLAME_LEFT_PAD = 5;   // 预留左右空间（百分比）
+const FLAME_USABLE_WIDTH = 90;
+const FLAME_MIN_WIDTH = 0.4; // 最小可见宽度（占根节点百分比）
+let currentZoomPath = [];
+
+// 解析 tree 生成火焰图数据
+function parseTreeNode(li) {
+    const label = li.querySelector(':scope > label.tree_label');
+    if (!label) return null;
+
+    const text = label.textContent || '';
+    const name = (text.match(/^[^(]+/) || [''])[0].trim();
+    const match = text.match(/\(([\d.]+)%\s+(\d+)\/(\d+)\)/);
+    const percentage = match ? parseFloat(match[1]) : 0;
+    const count = match ? parseInt(match[2], 10) : 0;
+    const total = match ? parseInt(match[3], 10) : 0;
+
+    const children = Array.from(li.querySelectorAll(':scope > ul > li'))
+        .map(parseTreeNode)
+        .filter(Boolean);
+
+    return { name, percentage, count, total, children };
+}
+
+function parseTreeRoot() {
+    const rootLi = document.querySelector('.tree > li');
+    if (!rootLi) return null;
+    return parseTreeNode(rootLi);
+}
+
+function percentToColor(pct) {
+    const clamped = Math.max(0, Math.min(100, pct)) / 100;
+    const start = { r: 0xfe, g: 0xe4, b: 0x36 }; // #fee436
+    const end = { r: 0xd5, g: 0x27, b: 0x09 };   // #d52709
+    const r = Math.round(start.r + (end.r - start.r) * clamped);
+    const g = Math.round(start.g + (end.g - start.g) * clamped);
+    const b = Math.round(start.b + (end.b - start.b) * clamped);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function pushBar(node, depth, xStart, width, path, bars) {
+    if (!node || width <= 0) return;
+    const displayPct = node.total ? (node.count / node.total * 100) : node.percentage;
+    bars.push({
+        name: node.name,
+        percentage: displayPct,
+        count: node.count,
+        total: node.total,
+        depth,
+        xStart,
+        width,
+        path: [...path]
+    });
+}
+
+function buildDescBars(node, depth, xStart, width, path, bars) {
+    if (!node || !node.children || node.children.length === 0 || node.count === 0) return;
+    let offset = 0;
+    node.children.forEach((child, idx) => {
+        const ratio = child.count && node.count ? (child.count / node.count) : 0;
+        const childWidth = width * ratio;
+        if (childWidth <= 0) return;
+        const childPath = [...path, idx];
+        pushBar(child, depth, xStart + offset, childWidth, childPath, bars);
+        buildDescBars(child, depth + 1, xStart + offset, childWidth, childPath, bars);
+        offset += childWidth;
+    });
+}
+
+function findNodeByPath(node, path) {
+    let cur = node;
+    for (const idx of path) {
+        if (!cur.children || !cur.children[idx]) return null;
+        cur = cur.children[idx];
+    }
+    return cur;
+}
+
+function renderFlameGraph() {
+    const container = document.getElementById('flameContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const data = parseTreeRoot();
+    if (!data) {
+        container.textContent = 'No data for flame graph';
+        return;
+    }
+
+    // 1) 先放入根到焦点路径的所有节点，宽度都占满（方便点击返回）
+    const bars = [];
+    let node = data;
+    let path = [];
+    let depth = 0;
+    pushBar(node, depth, 0, 100, path, bars);
+    for (let i = 0; i < currentZoomPath.length; i++) {
+        const idx = currentZoomPath[i];
+        if (!node.children || !node.children[idx]) break;
+        node = node.children[idx];
+        path = [...path, idx];
+        depth += 1;
+        pushBar(node, depth, 0, 100, path, bars);
+    }
+
+    // 2) 在焦点节点之上展开子树，宽度按当前焦点重新计算
+    buildDescBars(node, depth + 1, 0, 100, path, bars);
+
+    const maxDepth = bars.reduce((max, b) => Math.max(max, b.depth), 0);
+    const totalHeight = (maxDepth + 1) * (FLAME_BAR_HEIGHT + FLAME_BAR_GAP) + FLAME_BAR_GAP;
+
+    container.style.position = 'relative';
+    container.style.height = totalHeight + 'px';
+
+    bars.forEach(bar => {
+        const el = document.createElement('div');
+        el.className = 'flame-bar';
+        const baseWidth = Math.max(bar.width, FLAME_MIN_WIDTH); // 避免极细不可见
+        const widthPercent = baseWidth * FLAME_USABLE_WIDTH / 100;
+        const leftPercent = FLAME_LEFT_PAD + bar.xStart * FLAME_USABLE_WIDTH / 100;
+        el.style.left = `${leftPercent}%`;
+        el.style.width = `${widthPercent}%`;
+        const top = (maxDepth - bar.depth) * (FLAME_BAR_HEIGHT + FLAME_BAR_GAP);
+        el.style.top = `${top}px`;
+        el.style.height = `${FLAME_BAR_HEIGHT}px`;
+        el.style.background = percentToColor(bar.percentage);
+        el.title = `${bar.name} (${bar.percentage.toFixed(1)}% ${bar.count}/${bar.total})`;
+        el.dataset.path = bar.path.join(',');
+
+        const label = document.createElement('span');
+        label.className = 'flame-label';
+        label.textContent = `${bar.name} ${bar.percentage.toFixed(1)}%`;
+        el.appendChild(label);
+
+        el.addEventListener('click', () => {
+            currentZoomPath = bar.path;
+            renderFlameGraph();
+        });
+
+        container.appendChild(el);
+    });
+}
+
+function showFlameView() {
+    const treeContainer = document.getElementById('treeContainer');
+    const flameContainer = document.getElementById('flameContainer');
+    if (!treeContainer || !flameContainer) return;
+
+    treeContainer.style.display = 'none';
+    flameContainer.style.display = 'block';
+    renderFlameGraph();
+}
+
+function showTreeView() {
+    const treeContainer = document.getElementById('treeContainer');
+    const flameContainer = document.getElementById('flameContainer');
+    if (!treeContainer || !flameContainer) return;
+
+    flameContainer.style.display = 'none';
+    treeContainer.style.display = 'flex';
+}
+
 // 模糊搜索函数 - 返回匹配分数和匹配位置
 // https://github.com/bevacqua/fuzzysearch
 // https://github.com/krisypal/fuse.js
@@ -273,15 +437,19 @@ function createSearchBox() {
         treeBtn.style.display = 'none';
 
         fireBtn.addEventListener('click', () => {
+            if (currentView === 'fire') return;
             currentView = 'fire';
             fireBtn.style.display = 'none';
             treeBtn.style.display = 'inline-flex';
+            showFlameView();
         });
 
         treeBtn.addEventListener('click', () => {
+            if (currentView === 'tree') return;
             currentView = 'tree';
             treeBtn.style.display = 'none';
             fireBtn.style.display = 'inline-flex';
+            showTreeView();
         });
     }
 }
