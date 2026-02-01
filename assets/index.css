@@ -102,55 +102,6 @@ body {
     font-size: 14px;
 }
 
-.marked-panel {
-    width: 200px;
-    border-left: 1px solid #eee;
-    padding-left: 20px;
-    position: sticky;
-    top: 20px;
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-}
-
-.marked-panel h3 {
-    margin: 0 0 10px 0;
-    font-size: 14px;
-    color: #666;
-}
-
-.marked-item {
-    padding: 6px 10px;
-    margin: 4px 0;
-    background: #f8f9fa;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    color: #333;
-    transition: background-color 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.marked-item:hover {
-    background: #e9ecef;
-}
-
-.marked-item .remove {
-    color: #dc3545;
-    padding: 0 4px;
-    font-size: 14px;
-}
-
-.no-marks {
-    color: #666;
-    font-size: 12px;
-    font-style: italic;
-}
-
 /* Tree branches */
 .tree ul {
     display: none;
@@ -339,9 +290,13 @@ label.tree_label:before {
 /* Search box with autocomplete */
 .search-container {
     position: relative;
-    flex: 1;
-    margin-bottom: 20px;
+    width: 100%;
     display: none;
+}
+
+.search-container ::selection {
+    background: #09090b;
+    color: #fff;
 }
 
 .search-container.visible {
@@ -726,6 +681,12 @@ label.tree_label:before {
     font-size: 12px;
     line-height: 26px;
     cursor: pointer;
+}
+
+.flame-bar.marked {
+    outline: 2px solid #09090b;
+    box-shadow: 0 0 0 2px rgba(9, 9, 11, 0.12);
+    z-index: 1000;
 }
 
 .flame-label {

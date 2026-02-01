@@ -28,6 +28,7 @@ const FLAME_LEFT_PAD = 5;   // 预留左右空间（百分比）
 const FLAME_USABLE_WIDTH = 90;
 const FLAME_MIN_WIDTH = 0.4; // 最小可见宽度（占根节点百分比）
 let currentZoomPath = [];
+let markedPath = null; // 当前唯一标记的路径（与 tree / flame 同步）
 
 // 解析 tree 生成火焰图数据
 function parseTreeNode(li) {
@@ -102,6 +103,59 @@ function findNodeByPath(node, path) {
     return cur;
 }
 
+function getLabelByPath(path) {
+    let li = document.querySelector('.tree > li');
+    if (!li) return null;
+    if (!path || path.length === 0) return li.querySelector(':scope > label.tree_label');
+    for (const idx of path) {
+        const children = Array.from(li.querySelectorAll(':scope > ul > li'));
+        if (!children[idx]) return null;
+        li = children[idx];
+    }
+    return li.querySelector(':scope > label.tree_label');
+}
+
+function getPathFromLi(li) {
+    const path = [];
+    let cur = li;
+    while (cur) {
+        const parentLi = cur.parentElement?.closest('li');
+        if (!parentLi) break;
+        const siblings = Array.from(parentLi.querySelectorAll(':scope > ul > li'));
+        path.push(siblings.indexOf(cur));
+        cur = parentLi;
+    }
+    return path.reverse();
+}
+
+function getPathFromLabel(label) {
+    const li = label.closest('li');
+    if (!li) return [];
+    return getPathFromLi(li);
+}
+
+function pathToKey(path) {
+    if (!path || path.length === 0) return '';
+    return path.join(',');
+}
+
+function parsePathKey(key) {
+    if (!key) return [];
+    return key.split(',').filter(Boolean).map(n => parseInt(n, 10));
+}
+
+function clearAllMarks() {
+    document.querySelectorAll('.marked').forEach(el => el.classList.remove('marked'));
+}
+
+function applyMarkedPath(path) {
+    markedPath = path && path.length ? [...path] : [];
+    const label = getLabelByPath(markedPath);
+    if (label) label.classList.add('marked');
+    const bar = document.querySelector(`.flame-bar[data-path="${pathToKey(markedPath)}"]`);
+    if (bar) bar.classList.add('marked');
+}
+
 function renderFlameGraph() {
     const container = document.getElementById('flameContainer');
     if (!container) return;
@@ -160,13 +214,37 @@ function renderFlameGraph() {
         label.textContent = `${bar.name} ${bar.percentage.toFixed(1)}%`;
         el.appendChild(label);
 
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+            // 如果用户在拖拽选择文本，不触发缩放/重绘，避免选区被清空
+            if (window.getSelection && window.getSelection().toString()) return;
             currentZoomPath = bar.path;
             renderFlameGraph();
         });
 
+        el.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            // 选中文本时，右键仍允许菜单标记；清空选区以防浏览器弹出复制行为与标记冲突
+            if (window.getSelection) {
+                const sel = window.getSelection();
+                if (sel && sel.toString()) sel.removeAllRanges();
+            }
+            const alreadyMarked = el.classList.contains('marked');
+            clearAllMarks();
+            if (!alreadyMarked) {
+                applyMarkedPath(bar.path);
+            } else {
+                markedPath = [];
+            }
+        });
+
         graph.appendChild(el);
     });
+
+    // 渲染后同步现有标记（若存在）
+    if (markedPath !== null) {
+        const bar = document.querySelector(`.flame-bar[data-path="${pathToKey(markedPath)}"]`);
+        if (bar) bar.classList.add('marked');
+    }
 }
 
 function showFlameView() {
@@ -336,12 +414,15 @@ function createSearchBox() {
         }
     }
 
+    let shouldExactMatch = false;
+
     function selectItem(index) {
         if (index >= 0 && index < matches.length) {
             input.value = matches[index];
             autocompleteList.style.display = 'none';
             activeIndex = -1;
             matches = [];
+            shouldExactMatch = true;
             input.focus();
         }
     }
@@ -368,7 +449,7 @@ function createSearchBox() {
                 if (activeIndex !== -1) {
                     e.preventDefault();
                     selectItem(activeIndex);
-                    performSearch(input.value);
+                    performSearch(input.value, true);
                 } else {
                     performSearch(input.value);
                 }
@@ -390,7 +471,7 @@ function createSearchBox() {
         if (e.target.classList.contains('autocomplete-item')) {
             const index = Array.from(autocompleteList.children).indexOf(e.target);
             selectItem(index);
-            performSearch(input.value);
+            performSearch(input.value, true);
         }
     });
 
@@ -402,14 +483,26 @@ function createSearchBox() {
         }
     });
 
-    const performSearch = (searchTerm) => {
+    const performSearch = (searchTerm, forceExact = false) => {
         clearHighlight();
         if (!searchTerm) return;
+        const searchLower = searchTerm.toLowerCase();
+        const exact = forceExact || shouldExactMatch;
+        shouldExactMatch = false;
+        let firstMatch = null;
         labels.forEach(label => {
             const text = label.textContent;
             const functionName = text.match(/^[^(]+/)?.[0]?.trim() || '';
-            if (fuzzySearch(searchTerm.toLowerCase(), functionName.toLowerCase())) expandAndHighlight(label);
+            const targetLower = functionName.toLowerCase();
+            const matched = exact ? (targetLower === searchLower) : fuzzySearch(searchLower, targetLower);
+            if (matched) expandAndHighlight(label);
+            if (!firstMatch && label.classList.contains('highlight')) {
+                firstMatch = label;
+            }
         });
+        if (firstMatch) {
+            firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     };
 
     if (searchBtn) {
@@ -455,111 +548,6 @@ function createSearchBox() {
             showTreeView();
         });
     }
-}
-
-// 创建标签面板
-function createTagsPanel() {
-    // If static container exists in HTML, use it; otherwise create and move tree
-    const existing = document.querySelector('.tree-container');
-    if (existing) {
-        // ensure marked panel exists
-        const markedPanel = existing.querySelector('.marked-panel');
-        if (!markedPanel) {
-            const mp = document.createElement('div');
-            mp.className = 'marked-panel';
-            mp.innerHTML = '<h3>' + 'Marked Functions' + '</h3><p class="no-marks">' + 'No marks' + '</p>';
-            existing.appendChild(mp);
-        }
-        return;
-    }
-
-    // 创建容器包装 tree 和标记面板（回退至动态创建）
-    const treeContainer = document.createElement('div');
-    treeContainer.className = 'tree-container';
-
-    const tree = document.querySelector('.tree');
-    const treeParent = tree.parentNode;
-    treeContainer.appendChild(tree);
-
-    const markedPanel = document.createElement('div');
-    markedPanel.className = 'marked-panel';
-    markedPanel.innerHTML = '<h3>' + 'Marked Functions' + '</h3>';
-    treeContainer.appendChild(markedPanel);
-
-    treeParent.appendChild(treeContainer);
-}
-
-// 更新标签面板
-function updateTagsPanel() {
-    const markedPanel = document.querySelector('.marked-panel');
-    const markedNodes = document.querySelectorAll('.marked');
-
-    let markedContent = `<h3>Marked Functions</h3>`;
-
-    if (markedNodes.length > 0) {
-        markedContent += Array.from(markedNodes).map(node => {
-            const functionName = node.textContent.split('(')[0].trim();
-            const id = node.getAttribute('for');
-            return `
-                <div class="marked-item" data-id="${id}">
-                    <span class="function-name">${functionName}</span>
-                    <span class="remove">×</span>
-                </div>
-            `;
-        }).join('');
-    } else {
-        markedContent += `<p class="no-marks">${'No marks'}</p>`;
-    }
-
-    markedPanel.innerHTML = markedContent;
-
-    // 绑定标记项点击事件
-    markedPanel.querySelectorAll('.marked-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            if (e.target.classList.contains('remove')) {
-                const id = item.dataset.id;
-                const label = document.querySelector(`label[for="${id}"]`);
-                if (label) {
-                    label.classList.remove('marked');
-                    updateTagsPanel();
-                }
-            } else {
-                const id = item.dataset.id;
-                const label = document.querySelector(`label[for="${id}"]`);
-                if (label) {
-                    // 展开到该函数
-                    let parent = label.parentElement;
-                    while (parent) {
-                        if (parent.tagName === 'LI') {
-                            const input = parent.querySelector('input[type="checkbox"]');
-                            if (input) {
-                                input.checked = true;
-                            }
-                        }
-                        parent = parent.parentElement;
-                    }
-
-                    // 移除其他元素的动画类
-                    document.querySelectorAll('.highlight-pulse').forEach(el => {
-                        el.classList.remove('highlight-pulse');
-                    });
-
-                    // 滚动到该函数位置并添加高亮动画
-                    label.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                    // 等待滚动完成后添加动画
-                    setTimeout(() => {
-                        label.classList.add('highlight-pulse');
-                        // 动画结束后移除类
-                        label.addEventListener('animationend', () => {
-                            label.classList.remove('highlight-pulse');
-                        }, { once: true });
-                    }, 200);
-                }
-            }
-            e.stopPropagation();
-        });
-    });
 }
 
 // 性能指标颜色处理
@@ -632,13 +620,15 @@ labels.forEach(label => {
     label.addEventListener('contextmenu', function (event) {
         event.preventDefault();
 
-        if (label.classList.contains('marked')) {
-            label.classList.remove('marked');
+        const alreadyMarked = label.classList.contains('marked');
+        // 先清除所有标记，保证全局最多一个
+        clearAllMarks();
+        if (!alreadyMarked) {
+            const path = getPathFromLabel(label);
+            applyMarkedPath(path);
         } else {
-            label.classList.add('marked');
+            markedPath = [];
         }
-
-        updateTagsPanel();
     });
 });
 
@@ -716,7 +706,6 @@ function setupFileInfoTooltip() {
 document.addEventListener('DOMContentLoaded', () => {
     createControls();
     createSearchBox();
-    createTagsPanel();
     setupFileInfoTooltip();
     expandAll();
     addPerformanceColors(); // 对频率较低的函数标记为灰色并折叠
@@ -728,14 +717,24 @@ document.addEventListener('keydown', function (event) {
     if (event.ctrlKey && event.key === 'f') {
         event.preventDefault();
         const container = document.querySelector('.search-container');
+        const input = document.querySelector('.search-input');
         if (!container) return;
         const isVisible = container.classList.contains('visible');
         if (!isVisible) {
             container.classList.add('visible');
-            // focus the input when shown
-            setTimeout(() => { input.focus(); }, 0);
+            // 等待渲染后滚动并选中
+            requestAnimationFrame(() => {
+                if (input) {
+                    input.focus();
+                    if (input.value) input.select();
+                }
+            });
+        } else {
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (input) {
+                input.focus();
+                if (input.value) input.select();
+            }
         }
-        const input = document.querySelector('.search-input');
-        if (input) input.focus();
     }
 });
