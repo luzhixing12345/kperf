@@ -134,12 +134,15 @@ function renderFlameGraph() {
     const maxDepth = bars.reduce((max, b) => Math.max(max, b.depth), 0);
     const totalHeight = (maxDepth + 1) * (FLAME_BAR_HEIGHT + FLAME_BAR_GAP) + FLAME_BAR_GAP;
 
-    container.style.position = 'relative';
-    container.style.height = totalHeight + 'px';
+    const graph = document.createElement('div');
+    graph.className = 'flame-graph';
+    graph.style.height = Math.max(totalHeight, 160) + 'px';
+    container.appendChild(graph);
 
     bars.forEach(bar => {
         const el = document.createElement('div');
         el.className = 'flame-bar';
+        el.style.position = 'absolute';
         const baseWidth = Math.max(bar.width, FLAME_MIN_WIDTH); // 避免极细不可见
         const widthPercent = baseWidth * FLAME_USABLE_WIDTH / 100;
         const leftPercent = FLAME_LEFT_PAD + bar.xStart * FLAME_USABLE_WIDTH / 100;
@@ -162,7 +165,7 @@ function renderFlameGraph() {
             renderFlameGraph();
         });
 
-        container.appendChild(el);
+        graph.appendChild(el);
     });
 }
 
@@ -172,7 +175,7 @@ function showFlameView() {
     if (!treeContainer || !flameContainer) return;
 
     treeContainer.style.display = 'none';
-    flameContainer.style.display = 'block';
+    flameContainer.style.display = 'flex';
     renderFlameGraph();
 }
 

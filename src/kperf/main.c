@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
         ARG_BOOLEAN(&enable_debug, "-d", "--debug", "enable debug", NULL, "debug"),
         ARG_END()};
 
-    argparse_init(&parser, options, ARGPARSE_ENABLE_CMD);
+    argparse_init(&parser, options, ARGPARSE_ENABLE_CMD | ARGPARSE_ENABLE_ARG_STICK);
     argparse_describe(&parser,
                       "kperf",
                       "linux kernel and user space program profiler",
