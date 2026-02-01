@@ -57,12 +57,13 @@ function parseTreeRoot() {
 
 function percentToColor(pct) {
     const clamped = Math.max(0, Math.min(100, pct)) / 100;
-    const start = { r: 0xfe, g: 0xe4, b: 0x36 }; // #fee436
-    const end = { r: 0xd5, g: 0x27, b: 0x09 };   // #d52709
+    const start = { r: 0xa0, g: 0xa0, b: 0xa0 };   // gray
+    const end = { r: 0x00, g: 0x00, b: 0x00 }; // black
     const r = Math.round(start.r + (end.r - start.r) * clamped);
     const g = Math.round(start.g + (end.g - start.g) * clamped);
     const b = Math.round(start.b + (end.b - start.b) * clamped);
-    return `rgb(${r}, ${g}, ${b})`;
+    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+    return { color: `rgb(${r}, ${g}, ${b})`, luminance };
 }
 
 function pushBar(node, depth, xStart, width, path, bars) {
@@ -205,7 +206,10 @@ function renderFlameGraph() {
         const top = (maxDepth - bar.depth) * (FLAME_BAR_HEIGHT + FLAME_BAR_GAP);
         el.style.top = `${top}px`;
         el.style.height = `${FLAME_BAR_HEIGHT}px`;
-        el.style.background = percentToColor(bar.percentage);
+        const { color, luminance } = percentToColor(bar.percentage);
+        el.style.background = color;
+        // Keep labels readable as the bars transition from black to gray.
+        el.style.color = luminance < 120 ? '#f5f5f5' : '#111';
         el.title = `${bar.name} (${bar.percentage.toFixed(1)}% ${bar.count}/${bar.total})`;
         el.dataset.path = bar.path.join(',');
 
@@ -264,6 +268,15 @@ function showTreeView() {
 
     flameContainer.style.display = 'none';
     treeContainer.style.display = 'flex';
+    if (markedPath && markedPath.length) {
+        const label = getLabelByPath(markedPath);
+        if (label) {
+            label.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // 确保视觉高亮存在
+            clearAllMarks();
+            label.classList.add('marked');
+        }
+    }
 }
 
 // 模糊搜索函数 - 返回匹配分数和匹配位置
@@ -730,6 +743,7 @@ document.addEventListener('keydown', function (event) {
                 }
             });
         } else {
+            clearHighlight();
             container.scrollIntoView({ behavior: 'smooth', block: 'center' });
             if (input) {
                 input.focus();
