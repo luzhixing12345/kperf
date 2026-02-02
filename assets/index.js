@@ -908,19 +908,64 @@ document.addEventListener('keydown', function (event) {
 });
 
 
-const code = ' \
-int main() { \
-    return 0; \
-} \
-'
+const code = `int main() {
+    return 0;
+}
+`;
+
+const copyIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#9198a1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:1;"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+const copiedIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#3fb950" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:1;"><path fill="none"     d="M20 6L9 17l-5-5"/></svg>';
+
+async function writeClipboard(text) {
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+    }
+    // fallback for older browsers
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return success;
+    } catch (err) {
+        return false;
+    }
+}
 
 function createCodeBlock(code) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-block-wrapper';
+
     const pre = document.createElement('pre');
     pre.className = 'code-block';
     const codeEl = document.createElement('code');
     codeEl.textContent = code;
     pre.appendChild(codeEl);
-    return pre;
+
+    const copyBtn = document.createElement('div');
+    copyBtn.className = 'copy-btn';
+    copyBtn.innerHTML = copyIcon;
+    copyBtn.setAttribute('aria-label', 'Copy code');
+
+    copyBtn.addEventListener('click', async () => {
+        const ok = await writeClipboard(codeEl.textContent || '');
+        if (ok) {
+            copyBtn.innerHTML = copiedIcon;
+            setTimeout(() => { copyBtn.innerHTML = copyIcon; }, 1500);
+        } else {
+            console.error('Copy failed');
+        }
+    });
+
+    wrapper.appendChild(pre);
+    wrapper.appendChild(copyBtn);
+    return wrapper;
 }
 
 let ebpfRendered = false;

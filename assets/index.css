@@ -570,6 +570,38 @@ label.tree_label:before {
     font-family: var(--font-mono);
 }
 
+.code-block-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    position: absolute;
+    top: 20px;
+    right: 8px;
+    background: #0b0b0b;
+    color: #9198a1;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, transform 0.1s ease, color 0.12s ease;
+}
+
+.copy-btn:hover {
+    background: #121212;
+    border-color: #2a2a2a;
+    transform: translateY(-0.5px);
+}
+
+.copy-btn:active {
+    transform: translateY(0);
+}
+
 /* Flame graph */
 .flame-container {
     position: relative;
