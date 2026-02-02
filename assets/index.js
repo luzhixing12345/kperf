@@ -26,7 +26,7 @@ const FLAME_BAR_HEIGHT = 26;
 const FLAME_BAR_GAP = 2;
 const FLAME_LEFT_PAD = 5;   // 预留左右空间（百分比）
 const FLAME_USABLE_WIDTH = 90;
-const FLAME_MIN_WIDTH = 0.4; // 最小可见宽度（占根节点百分比）
+const FLAME_MIN_WIDTH = 0.1; // 最小可见宽度（占根节点百分比）
 let currentZoomPath = [];
 let markedPath = null; // 当前唯一标记的路径（与 tree / flame 同步）
 
@@ -55,15 +55,121 @@ function parseTreeRoot() {
     return parseTreeNode(rootLi);
 }
 
-function percentToColor(pct) {
-    const clamped = Math.max(0, Math.min(100, pct)) / 100;
-    const start = { r: 0xa0, g: 0xa0, b: 0xa0 };   // gray
-    const end = { r: 0x00, g: 0x00, b: 0x00 }; // black
-    const r = Math.round(start.r + (end.r - start.r) * clamped);
-    const g = Math.round(start.g + (end.g - start.g) * clamped);
-    const b = Math.round(start.b + (end.b - start.b) * clamped);
-    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-    return { color: `rgb(${r}, ${g}, ${b})`, luminance };
+// --- FlameGraph-compatible color generation (mirrors flamegraph.pl) ---
+const FLAME_COLOR_THEME = 'hot';   // same default as flamegraph.pl
+const USE_HASH_BY_NAME = false;    // match default (hash only when --hash is used)
+const paletteCache = new Map();    // keep function colors stable across renders
+
+function nameHash(name) {
+    // weighted hash that biases early characters; ported from flamegraph.pl namehash()
+    let vector = 0;
+    let weight = 1;
+    let max = 1;
+    let mod = 10;
+    const trimmed = name.replace(/.(.*?)`/, '');
+    for (let i = 0; i < trimmed.length && mod <= 12; i++) {
+        const c = trimmed.charCodeAt(i) % mod;
+        vector += (c / (mod - 1)) * weight;
+        max += 1 * weight;
+        weight *= 0.7;
+        mod += 1;
+    }
+    return 1 - vector / max;
+}
+
+function sumNameHash(name) {
+    let sum = 0;
+    for (let i = 0; i < name.length; i++) {
+        sum = (sum + name.charCodeAt(i)) >>> 0;
+    }
+    return sum;
+}
+
+function randomNameHash(name) {
+    // deterministic pseudo-random seeded by function name
+    let seed = sumNameHash(name) & 0x7fffffff;
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x80000000;
+}
+
+function colorForNameRaw(type, useHash, name) {
+    let v1, v2, v3;
+    if (useHash) {
+        v1 = nameHash(name);
+        v2 = v3 = nameHash(name.split('').reverse().join(''));
+    } else {
+        v1 = randomNameHash(name);
+        v2 = randomNameHash(name);
+        v3 = randomNameHash(name);
+    }
+
+    // theme palettes (hot/mem/io) and color palettes; defaults to "hot"
+    if (type === 'hot') {
+        const r = 205 + Math.floor(50 * v3);
+        const g = 0 + Math.floor(230 * v1);
+        const b = 0 + Math.floor(55 * v2);
+        return { r, g, b };
+    }
+    if (type === 'mem') {
+        const r = 0;
+        const g = 190 + Math.floor(50 * v2);
+        const b = 0 + Math.floor(210 * v1);
+        return { r, g, b };
+    }
+    if (type === 'io') {
+        const r = 80 + Math.floor(60 * v1);
+        const g = r;
+        const b = 190 + Math.floor(55 * v2);
+        return { r, g, b };
+    }
+    if (type === 'red') {
+        const r = 200 + Math.floor(55 * v1);
+        const x = 50 + Math.floor(80 * v1);
+        return { r, g: x, b: x };
+    }
+    if (type === 'green') {
+        const g = 200 + Math.floor(55 * v1);
+        const x = 50 + Math.floor(60 * v1);
+        return { r: x, g, b: x };
+    }
+    if (type === 'blue') {
+        const b = 205 + Math.floor(50 * v1);
+        const x = 80 + Math.floor(60 * v1);
+        return { r: x, g: x, b };
+    }
+    if (type === 'yellow') {
+        const x = 175 + Math.floor(55 * v1);
+        const b = 50 + Math.floor(20 * v1);
+        return { r: x, g: x, b };
+    }
+    if (type === 'purple') {
+        const x = 190 + Math.floor(65 * v1);
+        const g = 80 + Math.floor(60 * v1);
+        return { r: x, g, b: x };
+    }
+    if (type === 'aqua') {
+        const r = 50 + Math.floor(60 * v1);
+        const g = 165 + Math.floor(55 * v1);
+        const b = 165 + Math.floor(55 * v1);
+        return { r, g, b };
+    }
+    if (type === 'orange') {
+        const r = 190 + Math.floor(65 * v1);
+        const g = 90 + Math.floor(65 * v1);
+        return { r, g, b: 0 };
+    }
+
+    // fallback: black
+    return { r: 0, g: 0, b: 0 };
+}
+
+function colorForName(name, type = FLAME_COLOR_THEME) {
+    if (!paletteCache.has(name)) {
+        const rgb = colorForNameRaw(type, USE_HASH_BY_NAME, name);
+        const color = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+        paletteCache.set(name, { color });
+    }
+    return paletteCache.get(name);
 }
 
 function pushBar(node, depth, xStart, width, path, bars) {
@@ -187,11 +293,54 @@ function renderFlameGraph() {
     buildDescBars(node, depth + 1, 0, 100, path, bars);
 
     const maxDepth = bars.reduce((max, b) => Math.max(max, b.depth), 0);
-    const totalHeight = (maxDepth + 1) * (FLAME_BAR_HEIGHT + FLAME_BAR_GAP) + FLAME_BAR_GAP;
+    const rows = maxDepth + 1;
+
+    // Dynamically shrink bar height to fit the container and avoid inner scrollbars.
+    let barHeight = FLAME_BAR_HEIGHT;
+    let barGap = FLAME_BAR_GAP;
+
+    const style = window.getComputedStyle(container);
+    const padTop = parseFloat(style.paddingTop) || 0;
+    const padBottom = parseFloat(style.paddingBottom) || 0;
+    const containerHeight = container.clientHeight || container.getBoundingClientRect().height || 0;
+    const availableHeight = Math.max(0, containerHeight - padTop - padBottom);
+
+    const graphPadTop = 14;
+    const graphPadBottom = 14;
+    let drawableHeight = Math.max(0, availableHeight - graphPadTop - graphPadBottom);
+
+    const MIN_BAR_HEIGHT = 4;
+    const MIN_BAR_GAP = 1;
+    let totalHeight = rows * (barHeight + barGap) + barGap;
+    if (drawableHeight && totalHeight > drawableHeight) {
+        const slot = drawableHeight / rows;
+        barGap = Math.max(MIN_BAR_GAP, Math.floor(slot * 0.12));
+        barHeight = Math.max(MIN_BAR_HEIGHT, Math.floor(slot - barGap));
+        totalHeight = rows * (barHeight + barGap) + barGap;
+
+        if (totalHeight > drawableHeight) {
+            barGap = MIN_BAR_GAP;
+            barHeight = Math.max(MIN_BAR_HEIGHT, Math.floor((drawableHeight - barGap) / rows - MIN_BAR_GAP));
+            totalHeight = rows * (barHeight + barGap) + barGap;
+        }
+    }
 
     const graph = document.createElement('div');
     graph.className = 'flame-graph';
-    graph.style.height = Math.max(totalHeight, 160) + 'px';
+    graph.style.paddingTop = `${graphPadTop}px`;
+    graph.style.paddingBottom = `${graphPadBottom}px`;
+
+    const contentHeight = totalHeight + graphPadTop + graphPadBottom;
+    graph.style.height = `${Math.max(contentHeight, 160)}px`;
+
+    let scaleY = 1;
+    if (availableHeight && contentHeight > availableHeight) {
+        scaleY = availableHeight / contentHeight;
+        graph.style.transformOrigin = 'top left';
+        graph.style.transform = `scale(1, ${scaleY})`;
+    } else {
+        graph.style.transform = '';
+    }
     container.appendChild(graph);
 
     bars.forEach(bar => {
@@ -203,13 +352,13 @@ function renderFlameGraph() {
         const leftPercent = FLAME_LEFT_PAD + bar.xStart * FLAME_USABLE_WIDTH / 100;
         el.style.left = `${leftPercent}%`;
         el.style.width = `${widthPercent}%`;
-        const top = (maxDepth - bar.depth) * (FLAME_BAR_HEIGHT + FLAME_BAR_GAP);
+        const top = (maxDepth - bar.depth) * (barHeight + barGap);
         el.style.top = `${top}px`;
-        el.style.height = `${FLAME_BAR_HEIGHT}px`;
-        const { color, luminance } = percentToColor(bar.percentage);
+        el.style.height = `${barHeight}px`;
+        el.style.lineHeight = `${barHeight}px`;
+        const { color } = colorForName(bar.name);
         el.style.background = color;
-        // Keep labels readable as the bars transition from black to gray.
-        el.style.color = luminance < 120 ? '#f5f5f5' : '#111';
+        el.style.color = '#000';
         el.title = `${bar.name} (${bar.percentage.toFixed(1)}% ${bar.count}/${bar.total})`;
         el.dataset.path = bar.path.join(',');
 
