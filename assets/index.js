@@ -508,7 +508,12 @@ function switchTab(name) {
     contents.forEach(c => c.style.display = 'none');
 
     const active = document.getElementById('tab-' + name);
-    if (active) active.style.display = '';
+    if (active) {
+        active.style.display = '';
+        if (name === 'ebpf') {
+            renderEbpfTab();
+        }
+    }
 
     // update active class on tab buttons
     document.querySelectorAll('.tab-button').forEach(b => {
@@ -901,3 +906,31 @@ document.addEventListener('keydown', function (event) {
         }
     }
 });
+
+
+const code = ' \
+int main() { \
+    return 0; \
+} \
+'
+
+function createCodeBlock(code) {
+    const pre = document.createElement('pre');
+    pre.className = 'code-block';
+    const codeEl = document.createElement('code');
+    codeEl.textContent = code;
+    pre.appendChild(codeEl);
+    return pre;
+}
+
+let ebpfRendered = false;
+function renderEbpfTab() {
+    if (ebpfRendered) return;
+    const container = document.getElementById('ebpfContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const pre = createCodeBlock(code);
+    container.appendChild(pre);
+    ebpfRendered = true;
+}
