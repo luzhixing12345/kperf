@@ -11,7 +11,6 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <libdwarf/libdwarf.h>
 #include <libiberty/demangle.h>
 #include <dwarf.h>
 #include <elf.h>
