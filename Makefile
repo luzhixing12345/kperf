@@ -145,6 +145,7 @@ NUM_DEFAULTS := $(words $(DEFAULT_TARGETS))
 ifeq ($(BUILD_PATH),.)
 	BUILD_BIN_PATH := .
 	BUILD_LIB_PATH := .
+	BUILD_INCLUDE_PATH := .
 	MAKE_DIRS :=
 else
 	ifneq ($(HAS_LIB),)
@@ -152,12 +153,14 @@ else
 			# default contains lib and other targets -> use bin/ and lib/
 			BUILD_BIN_PATH := $(BUILD_PATH)/bin
 			BUILD_LIB_PATH := $(BUILD_PATH)/lib
-			MAKE_DIRS := $(BUILD_BIN_PATH) $(BUILD_LIB_PATH)
+			BUILD_INCLUDE_PATH := $(BUILD_PATH)/include
+			MAKE_DIRS := $(BUILD_BIN_PATH) $(BUILD_LIB_PATH) $(BUILD_INCLUDE_PATH)
 		else
 			# default only builds lib -> create lib/ only, put bin in build/
 			BUILD_BIN_PATH := $(BUILD_PATH)
 			BUILD_LIB_PATH := $(BUILD_PATH)/lib
-			MAKE_DIRS := $(BUILD_LIB_PATH)
+			BUILD_INCLUDE_PATH := $(BUILD_PATH)/include
+			MAKE_DIRS := $(BUILD_LIB_PATH) $(BUILD_INCLUDE_PATH)
 		endif
 	else
 		# default does not build lib -> put executables directly under build/
@@ -248,11 +251,15 @@ $(LIBFDT_DYNAMIC): $(OBJS)
 	$(E) "  LINK    \033[1;32m%s\033[0m\n" $@
 	$(Q) $(CC) -fPIC -shared $(OBJS) -o $@
 	$(E) "  dynamic lib $@ is ready.\n"
-	$(E) "  use lib with \033[1m-L$(BUILD_LIB_PATH) -l$(TARGET)\033[0m\n"
+
+# move all $(SRC_PATH)/*.h to $(BUILD_INCLUDE_PATH)
+header_build:
+	$(Q) mkdir -p $(BUILD_INCLUDE_PATH)
+	$(Q) cp $(SRC_PATH)/*.h $(BUILD_INCLUDE_PATH)/
 
 # compile both static and dynamic lib
-lib: $(LIBFDT_STATIC) $(LIBFDT_DYNAMIC)
-.PHONY: lib
+lib: $(LIBFDT_STATIC) $(LIBFDT_DYNAMIC) header_build
+.PHONY: lib header_build header_install
 
 # ------------------------- #
 #         each exe          #
@@ -293,12 +300,13 @@ BPF_OBJS = $(BPF_SRC:.bpf.c=.bpf.o)
 BPF_SKELETONS = $(BPF_SRC:.bpf.c=.skel.h)
 DEPS	+= $(foreach obj,$(BPF_OBJS),\
 		$(subst $(comma),_,$(dir $(obj)).$(notdir $(obj)).d))
-CLANG   = clang
+CLANG   := clang
+BPFTOOL := bpftool
 
 # Generate vmlinux.h if it doesn't exist
 src/bpf/vmlinux.h:
-	$(Q) if command -v bpftool >/dev/null 2>&1; then \
-		bpftool btf dump file /sys/kernel/btf/vmlinux format c > $@; \
+	$(Q) if command -v $(BPFTOOL) >/dev/null 2>&1; then \
+		$(BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > $@; \
 	else \
 		touch $@; \
 	fi
@@ -307,7 +315,7 @@ $(BPF_OBJS): src/bpf/vmlinux.h
 
 %.skel.h: %.bpf.o
 	$(E) "  GEN     %s\n" $@
-	$(Q) bpftool gen skeleton $< > $@
+	$(Q) $(BPFTOOL) gen skeleton $< > $@
 %.bpf.o: %.bpf.c
 	$(E) "  CLANG   %s\n" $@
 	$(Q) $(CLANG) $(c_flags) -g -target bpf -c $< -o $@
@@ -358,6 +366,7 @@ clean:
 	$(Q) [ -f $(PROGRAM) ] && rm -f $(PROGRAM) || true
 	$(Q) if [ -n "$(BUILD_BIN_PATH)" -a "$(BUILD_BIN_PATH)" != "." -a "$(BUILD_BIN_PATH)" != "$(SRC_PATH)" ]; then rm -rf "$(BUILD_BIN_PATH)" > /dev/null 2>&1 || true; fi
 	$(Q) if [ -n "$(BUILD_LIB_PATH)" -a "$(BUILD_LIB_PATH)" != "." -a "$(BUILD_LIB_PATH)" != "$(SRC_PATH)" ]; then rm -rf "$(BUILD_LIB_PATH)" > /dev/null 2>&1 || true; fi
+	$(Q) if [ -n "$(BUILD_INCLUDE_PATH)" -a "$(BUILD_INCLUDE_PATH)" != "." -a "$(BUILD_INCLUDE_PATH)" != "$(SRC_PATH)" ]; then rm -rf "$(BUILD_INCLUDE_PATH)" > /dev/null 2>&1 || true; fi
 	$(Q) if [ -n "$(BUILD_PATH)" -a "$(BUILD_PATH)" != "." -a "$(BUILD_PATH)" != "$(SRC_PATH)" ]; then rm -rf "$(BUILD_PATH)" > /dev/null 2>&1 || true; fi
 	$(Q) rm -f $(LIBFDT_STATIC)
 	$(Q) rm -f $(LIBFDT_DYNAMIC)
